@@ -164,10 +164,10 @@ The `import_yocto_bm.py` usage is shown below:
                         	KB recipe file local copy
 	  --report rep.txt	If KB check is performed, produce a list of matched. modified and unmatched recipes
 	  --bblayers_out bbfile
-	  			Can be used to scan a build without access to the build environment - require the 
-				license.manifest files and a file containing the output of the command 
-				`bitbake-layers show-recipes '*'` instead of calling the command directly. Also 
-				skip identification of recipe revisions (assume all revisions are -r0)
+	  			Can be used to scan a build without access to the build environment - a file 
+				containing the output of the command `bitbake-layers show-recipes '*'` instead of 
+				calling the command directly as well as the license.manifest file to be specified 
+				with -m. Also skips identification of recipe revisions (assumes all revisions are -r0)
 
 
 The script will use the invocation folder as the Yocto build folder (e.g. yocto_zeus/poky/build) by default (if there is a `build` sub-folder then it will be used instead). The `--yocto_folder` option can be used to specify the Yocto build folder as opposed to the invocation folder.
