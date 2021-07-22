@@ -11,10 +11,19 @@ The `import_yocto_bm.py` script is designed to import a Yocto project build mani
 
 It can be used as an alternative to the standard Yocto scan process for Black Duck provided within Synopsys Detect, and is mainly focussed on identifying the recipes within the built image as opposed to all recipes in the build environment, but provides additional capabilities including checking against the Black Duck KB, replacing recipe specifications and propagating locally patched CVEs to the Black Duck project.
 
-# LATEST UPDATES - VERSION 1.11
+# LATEST UPDATES
+## V1.13
+- replaced the --debug option with --bblayers_out with the ability to define the input file.
+- Fixed the --report option to use the specified report file (previously always wrote to report.txt
+- Changed the recipe matching logic to also look for KB matches without revisions (-rX) to support older Yocto versions
 
-Version 1.11 fixed a minor issue with AUTOINC component versions.
+## V1.12
+- Minor bug fixes
 
+## V1.11
+- Fixed a minor issue with AUTOINC component versions.
+
+## Previous Versions
 Versions 1.10 and 1.9 added fixes for the KB recipe lookup, and a new report output showing the list of recipes matched, modified or not matchable (use `--report reort.txt` option) as well as updating the list of KB recipes located in the data file.
 
 Version 1.8 will automatically download a list of all Yocto projects stored in the Black Duck KB and checks the recipes in the local project, remapping recipes to origin layers or revisions to reduce the number of non matched components in the resulting Black Duck project. This functionality can be skipped using the --no_kb_check option, or if the download of the KB data from Github is not possible within the script, the --kb_recipe_file option allows a local copy to be used.
@@ -153,7 +162,12 @@ The `import_yocto_bm.py` usage is shown below:
 	  --no_kb_check         Do not check recipes against KB
 	  --kb_recipe_file KB_RECIPE_FILE
                         	KB recipe file local copy
-	  --report rep.txt	If KB check is performed, produce a list of matched. modified and unmatched recipes.
+	  --report rep.txt	If KB check is performed, produce a list of matched. modified and unmatched recipes
+	  --bblayers_out bbfile
+	  			Can be used to scan a build without access to the build environment - require the 
+				license.manifest files and a file containing the output of the command 
+				`bitbake-layers show-recipes '*'` instead of calling the command directly. Also 
+				skip identification of recipe revisions (assume all revisions are -r0)
 
 
 The script will use the invocation folder as the Yocto build folder (e.g. yocto_zeus/poky/build) by default (if there is a `build` sub-folder then it will be used instead). The `--yocto_folder` option can be used to specify the Yocto build folder as opposed to the invocation folder.
