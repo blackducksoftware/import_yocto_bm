@@ -9,7 +9,8 @@ import re
 import subprocess
 import shutil
 import time
-from blackduck.HubRestApi import HubInstance
+# from blackduck.HubRestApi import HubInstance
+from blackduck import Client
 
 
 def check_args():
@@ -58,19 +59,49 @@ def check_args():
 
 def check_env():
     global args
+    bd = None
+
+    if args.output_json == '':
+        url = os.environ.get('BLACKDUCK_URL')
+        if args.blackduck_url:
+            url = args.blackduck_url
+
+        api = os.environ.get('BLACKDUCK_API_TOKEN')
+        if args.blackduck_api_token != '':
+            api = args.blackduck_api_token
+
+        verify = True
+        trustcert = os.environ.get('BLACKDUCK_TRUST_CERT')
+        if trustcert == 'true':
+            verify = False
+        if args.blackduck_trust_cert:
+            verify = False
+
+        bd = Client(
+            token=api,
+            base_url=url,
+            timeout=300,
+            verify=verify  # TLS certificate verification
+        )
+        try:
+            bd.list_resources()
+        except Exception as exc:
+            print('Unable to eonnect to BD server - {}'.format(str(exc)))
+            return False, None
+
     if args.bblayers_out != '':
-        return True
+        return True, bd
     if platform.system() != "Linux":
         print("Please use this program on a Linux platform where Yocto project has been built\nExiting")
-        return False
+        return False, None
 
     # Check oe-pkgdata-util and bitbake commands are on PATH
     if shutil.which("bitbake") is None or shutil.which("bitbake-layers") is None:
         print(
             '''Please ensure Yocto project has been installed and environment has been set 
             (run 'source ooe-init-build-env)\nExiting''')
-        return False
-    return True
+        return False, None
+    return True, bd
 
 
 def check_yocto_build_folder():
@@ -318,13 +349,14 @@ def proc_layers():
     print("- Processing layers: ...")
     # proj_rel is for the project relationship (project to layers)
     for layer in layers:
-        if layer in rep_layers.keys():
-            rep_layer = rep_layers[layer]
-        else:
-            rep_layer = layer
+        # if layer in rep_layers.keys():
+        #     rep_layer = rep_layers[layer]
+        # else:
+        #     rep_layer = layer
         proj_rel.append(
             {
-                "related": "http:yocto/" + rep_layer + "/1.0",
+                # "related": "http:yocto/" + rep_layer + "/1.0",
+                "related": "http:yocto/" + layer + "/1.0",
                 "relationshipType": "DYNAMIC_LINK"
             }
         )
@@ -334,35 +366,40 @@ def proc_layers():
                 # print("DEBUG: " + recipe)
                 ver = recipes[recipe]
 
-                rec_layer = rep_layer
-                if recipe in rep_recipes.keys():
-                    recipever_string = rep_recipes[recipe] + "/" + ver
-                elif recipe + "/" + ver in rep_recipes.keys():
-                    recipever_string = rep_recipes[recipe + "/" + ver]
-                elif layer + "/" + recipe in rep_recipes.keys():
-                    rec_layer = rep_recipes[rep_layer + "/" + recipe].split("/")[0]
-                    slash = rep_recipes[rep_layer + "/" + recipe].find("/") + 1
-                    recipever_string = rep_recipes[rep_layer + "/" + recipe][slash:]
-                elif layer + "/" + recipe + "/" + ver in rep_recipes.keys():
-                    rec_layer = rep_recipes[rep_layer + "/" + recipe + "/" + ver].split("/")[0]
-                    slash = rep_recipes[rep_layer + "/" + recipe + "/" + ver].find("/") + 1
-                    recipever_string = rep_recipes[rep_layer + "/" + recipe + "/" + ver][slash:]
-                else:
-                    recipever_string = recipe + "/" + ver
+                # DEBUG - replacefile
+                # rec_layer = rep_layer
+                # if recipe in rep_recipes.keys():
+                #     recipever_string = rep_recipes[recipe] + "/" + ver
+                # elif recipe + "/" + ver in rep_recipes.keys():
+                #     recipever_string = rep_recipes[recipe + "/" + ver]
+                # elif layer + "/" + recipe in rep_recipes.keys():
+                #     rec_layer = rep_recipes[rep_layer + "/" + recipe].split("/")[0]
+                #     slash = rep_recipes[rep_layer + "/" + recipe].find("/") + 1
+                #     recipever_string = rep_recipes[rep_layer + "/" + recipe][slash:]
+                # elif layer + "/" + recipe + "/" + ver in rep_recipes.keys():
+                #     rec_layer = rep_recipes[rep_layer + "/" + recipe + "/" + ver].split("/")[0]
+                #     slash = rep_recipes[rep_layer + "/" + recipe + "/" + ver].find("/") + 1
+                #     recipever_string = rep_recipes[rep_layer + "/" + recipe + "/" + ver][slash:]
+                # else:
+                #     recipever_string = recipe + "/" + ver
+                recipever_string = recipe + "/" + ver
 
                 layer_rel.append(
                     {
-                        "related": "http:yocto/" + rec_layer + "/" + recipever_string,
+                        # "related": "http:yocto/" + rec_layer + "/" + recipever_string,
+                        "related": "http:yocto/" + layer + "/" + recipever_string,
                         "relationshipType": "DYNAMIC_LINK"
                     }
                 )
 
         comps_layers.append({
-            "@id": "http:yocto/" + rep_layer + "/1.0",
+            # "@id": "http:yocto/" + rep_layer + "/1.0",
+            "@id": "http:yocto/" + layer + "/1.0",
             "@type": "Component",
             "externalIdentifier": {
                 "externalSystemTypeId": "@yocto",
-                "externalId": rep_layer,
+                # "externalId": rep_layer,
+                "externalId": layer,
                 "externalIdMetaData": {
                     "forge": {
                         "name": "yocto",
@@ -370,7 +407,8 @@ def proc_layers():
                         "usePreferredNamespaceAlias": True
                     },
                     "pieces": [
-                        rep_layer,
+                        # rep_layer,
+                        layer,
                         "1.0"
                     ],
                     "prefix": "meta"
@@ -390,30 +428,32 @@ def proc_recipes():
 
         if recipe in recipe_layer.keys():
             layer = recipe_layer[recipe]
-            if recipe_layer[recipe] in rep_layers.keys():
-                layer_string = rep_layers[recipe_layer[recipe]]
-            else:
-                layer_string = recipe_layer[recipe]
+        #     if recipe_layer[recipe] in rep_layers.keys():
+        #         layer_string = rep_layers[recipe_layer[recipe]]
+        #     else:
+        #         layer_string = recipe_layer[recipe]
+            layer_string = recipe_layer[recipe]
 
-            if recipe in rep_recipes.keys():
-                recipever_string = rep_recipes[recipe] + "/" + ver
-            elif recipe + "/" + ver in rep_recipes.keys():
-                recipever_string = rep_recipes[recipe + "/" + ver]
-            elif layer + "/" + recipe in rep_recipes.keys():
-                layer_string = rep_recipes[layer + "/" + recipe].split("/")[0]
-                slash = rep_recipes[layer + "/" + recipe].find("/") + 1
-                recipever_string = rep_recipes[layer + "/" + recipe][slash:]
-            elif layer + "/" + recipe + "/" + ver in rep_recipes.keys():
-                layer_string = rep_recipes[layer + "/" + recipe + "/" + ver].split("/")[0]
-                slash = rep_recipes[layer + "/" + recipe + "/" + ver].find("/") + 1
-                recipever_string = rep_recipes[layer + "/" + recipe + "/" + ver][slash:]
-            else:
-                recipever_string = recipe + "/" + ver
+            # if recipe in rep_recipes.keys():
+            #     recipever_string = rep_recipes[recipe] + "/" + ver
+            # elif recipe + "/" + ver in rep_recipes.keys():
+            #     recipever_string = rep_recipes[recipe + "/" + ver]
+            # elif layer + "/" + recipe in rep_recipes.keys():
+            #     layer_string = rep_recipes[layer + "/" + recipe].split("/")[0]
+            #     slash = rep_recipes[layer + "/" + recipe].find("/") + 1
+            #     recipever_string = rep_recipes[layer + "/" + recipe][slash:]
+            # elif layer + "/" + recipe + "/" + ver in rep_recipes.keys():
+            #     layer_string = rep_recipes[layer + "/" + recipe + "/" + ver].split("/")[0]
+            #     slash = rep_recipes[layer + "/" + recipe + "/" + ver].find("/") + 1
+            #     recipever_string = rep_recipes[layer + "/" + recipe + "/" + ver][slash:]
+            # else:
+            #     recipever_string = recipe + "/" + ver
+            recipever_string = recipe + "/" + ver
 
             if recipe + "/" + ver != recipever_string:
                 print(
-                    "INFO: Replaced layer/recipe {}/{} with {}/{} from replacefile".format(layer, recipe, layer_string,
-                                                                                           recipever_string))
+                    "INFO: Replaced layer/recipe {}/{} with {}/{} from replacefile".format(
+                        layer, recipe, layer_string, recipever_string))
 
             comps_recipes.append(
                 {
@@ -465,13 +505,17 @@ def write_bdio(bdio):
     return True
 
 
-def upload_json(jsonfile):
-    hub = HubInstance()
-    r = hub.upload_scan(jsonfile)
-    if r.status_code == 201:
-        return True
-    else:
-        return False
+def upload_json(bd, jsonfile):
+    headers = {
+        # 'Content-Type': "application/ld+json",
+        'Accept': "application/vnd.blackducksoftware.bdio+json",
+        'Content-Type': "application/vnd.blackducksoftware.bdio+json"
+    }
+    with open(jsonfile, "r") as f:
+        r = bd.session.post(bd.base_url + "/api/scan/data/?mode=replace", json=f.read(), headers=headers)
+        if r.status_code == 201:
+            return True
+    return False
 
 
 def patch_vuln(hub, comp):
@@ -535,22 +579,24 @@ def process_patched_cves(hub, version, vuln_list):
     return True
 
 
-def wait_for_bom_completion(hub, ver):
+def wait_for_bom_completion(bd, ver):
     # Check job status
     try:
         links = ver['_meta']['links']
         link = next((item for item in links if item["rel"] == "bom-status"), None)
 
         href = link['href']
-        custom_headers = {'Accept': 'application/vnd.blackducksoftware.internal-1+json'}
-        resp = hub.execute_get(href, custom_headers=custom_headers)
+        headers = {'Accept': 'application/vnd.blackducksoftware.internal-1+json'}
+        # resp = hub.execute_get(href, custom_headers=custom_headers)
+        resp = bd.get_json(href, headers=headers)
 
         loop = 0
-        uptodate = resp.json()['upToDate']
+        uptodate = resp['upToDate']
         while not uptodate and loop < 80:
             time.sleep(15)
-            resp = hub.execute_get(href, custom_headers=custom_headers)
-            uptodate = resp.json()['upToDate']
+            # resp = hub.execute_get(href, custom_headers=custom_headers)
+            resp = bd.get_json(href, headers=headers)
+            uptodate = resp['upToDate']
             loop += 1
     except Exception as e:
         print("ERROR: {}".format(str(e)))
@@ -562,7 +608,7 @@ def wait_for_bom_completion(hub, ver):
         return False
 
 
-def wait_for_scans(hub, ver):
+def wait_for_scans(bd, ver):
     links = ver['_meta']['links']
     link = next((item for item in links if item["rel"] == "codelocations"), None)
 
@@ -573,7 +619,7 @@ def wait_for_scans(hub, ver):
     loop = 0
     while wait and loop < 20:
         custom_headers = {'Accept': 'application/vnd.blackducksoftware.internal-1+json'}
-        resp = hub.execute_get(href, custom_headers=custom_headers)
+        resp = bd.execute_get(href, custom_headers=custom_headers)
         for cl in resp.json()['items']:
             if 'status' in cl:
                 status_list = cl['status']
@@ -678,23 +724,22 @@ def check_recipes(kbrecfile):
             origcomp = layer + "/" + recipe + "/" + orig_recipes[recipe]
 
             newlayer_string = layer
-            if recipe in rep_recipes.keys():
-                newrecipever_string = rep_recipes[recipe] + "/" + ver
-            elif recipe + "/" + ver in rep_recipes.keys():
-                newrecipever_string = rep_recipes[recipe + "/" + ver]
-            elif layer + "/" + recipe in rep_recipes.keys():
-                newlayer_string = rep_recipes[layer + "/" + recipe].split("/")[0]
-                slash = rep_recipes[layer + "/" + recipe].find("/") + 1
-                newrecipever_string = rep_recipes[layer + "/" + recipe][slash:]
-            elif layer + "/" + recipe + "/" + ver in rep_recipes.keys():
-                newlayer_string = rep_recipes[layer + "/" + recipe + "/" + ver].split("/")[0]
-                slash = rep_recipes[layer + "/" + recipe + "/" + ver].find("/") + 1
-                newrecipever_string = rep_recipes[layer + "/" + recipe + "/" + ver][slash:]
-            else:
-                newrecipever_string = recipe + "/" + ver
-
-            comp = newlayer_string + "/" + newrecipever_string
-
+            # if recipe in rep_recipes.keys():
+            #     newrecipever_string = rep_recipes[recipe] + "/" + ver
+            # elif recipe + "/" + ver in rep_recipes.keys():
+            #     newrecipever_string = rep_recipes[recipe + "/" + ver]
+            # elif layer + "/" + recipe in rep_recipes.keys():
+            #     newlayer_string = rep_recipes[layer + "/" + recipe].split("/")[0]
+            #     slash = rep_recipes[layer + "/" + recipe].find("/") + 1
+            #     newrecipever_string = rep_recipes[layer + "/" + recipe][slash:]
+            # elif layer + "/" + recipe + "/" + ver in rep_recipes.keys():
+            #     newlayer_string = rep_recipes[layer + "/" + recipe + "/" + ver].split("/")[0]
+            #     slash = rep_recipes[layer + "/" + recipe + "/" + ver].find("/") + 1
+            #     newrecipever_string = rep_recipes[layer + "/" + recipe + "/" + ver][slash:]
+            # else:
+            #     newrecipever_string = recipe + "/" + ver
+            # comp = newlayer_string + "/" + newrecipever_string
+            comp = origcomp
 
             if comp in kbentries:
                 # Component exists in KB
@@ -732,8 +777,8 @@ def check_recipes(kbrecfile):
                         with '{}/{}/{}' from KB".format(origcomp, arr[0], recipe, ver_norev))
                     recipe_layer[recipe] = arr[0]
                     recipes[recipe] = ver_norev
-                    report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(origcomp,
-                                                                                    arr[0], recipe, ver_norev))
+                    report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
+                        origcomp, arr[0], recipe, ver_norev))
                     break
                 elif layer != arr[0] and ver_norev == arr[1]:
                     # Recipe and version exist in KB - layer is different
@@ -741,8 +786,8 @@ def check_recipes(kbrecfile):
                         with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver_norev))
                     recipe_layer[recipe] = arr[0]
                     recipes[recipe] = ver_norev
-                    report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(origcomp,
-                                                                                    arr[0], recipe, ver_norev))
+                    report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
+                        origcomp, arr[0], recipe, ver_norev))
                     break
             else:
                 # Recipe exists in KB but Layer+Version or Version does not
@@ -795,8 +840,8 @@ def check_recipes(kbrecfile):
                                 --repfile with a version replacement (available versions {})".format(
                                     origcomp, reclist))
                             report['NOTREPLACED_NOLAYER+VERSION'].append(
-                                "ORIG={} Check layers/recipes in KB - Available versions={}".format(origcomp,
-                                                                                                    reclist))
+                                "ORIG={} Check layers/recipes in KB - Available versions={}".format(
+                                    origcomp, reclist))
                             continue
             continue
 
@@ -824,6 +869,9 @@ parser = argparse.ArgumentParser(description='Import Yocto build manifest to BD 
 
 # parser.add_argument("projfolder", nargs="?", help="Yocto project folder to analyse", default=".")
 
+parser.add_argument("--blackduck_url", type=str, help="Black Duck server URL", default="")
+parser.add_argument("--blackduck_api_token", type=str, help="Black Duck API token ", default="")
+parser.add_argument("--blackduck_trust_cert", help="Black Duck trust server cert", action='store_true')
 parser.add_argument("-p", "--project", help="Black Duck project to create (REQUIRED)", default="")
 parser.add_argument("-v", "--version", help="Black Duck project version to create (REQUIRED)", default="")
 parser.add_argument("-y", "--yocto_build_folder",
@@ -881,7 +929,7 @@ do_upload = True
 licdir = ''
 
 
-def main():
+def proc_yocto_project(manfile):
     global args
     global bdio
     global proj
@@ -899,10 +947,126 @@ def main():
     global rep_recipes
     global do_upload
 
-    print("Yocto build manifest import into Black Duck Utility v1.13")
+    try:
+        i = open(manfile, "r")
+    except Exception as e:
+        print('ERROR: Unable to open input manifest file {}\n'.format(manfile) + str(e))
+        sys.exit(3)
+
+    try:
+        liclines = i.readlines()
+        i.close()
+    except Exception as e:
+        print('ERROR: Unable to read license.manifest file {} \n'.format(manfile) + str(e))
+        sys.exit(3)
+
+    print("\nProcessing Bitbake project:")
+    if not proc_license_manifest(liclines):
+        sys.exit(3)
+    proc_layers_in_recipes()
+    proc_recipe_revisions()
+    if not args.no_kb_check:
+        check_recipes(args.kb_recipe_file)
+    proc_layers()
+    proc_recipes()
+
+    # proj_rel is for the project relationship (project to layers)
+
+    u = uuid.uuid1()
+
+    mytime = datetime.datetime.now()
+    bdio_header = {
+        "specVersion": "1.1.0",
+        "spdx:name": args.project + "/" + args.version + " yocto/bom",
+        "creationInfo": {
+            "spdx:creator": [
+                "Tool: Detect-6.3.0",
+                "Tool: IntegrationBdio-21.0.1"
+            ],
+            "spdx:created": mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        },
+        "@id": "uuid:" + str(u),
+        "@type": "BillOfMaterials",
+        "relationship": []
+    }
+
+    bdio_project = {
+        "name": args.project,
+        "revision": args.version,
+        "@id": "http:yocto/" + args.project + "/" + args.version,
+        "@type": "Project",
+        "externalIdentifier": {
+            "externalSystemTypeId": "@yocto",
+            "externalId": "yocto/" + args.project + "/" + args.version,
+            "externalIdMetaData": {
+                "forge": {
+                    "name": "yocto",
+                    "separator": ":",
+                    "usePreferredNamespaceAlias": True
+                },
+                "pieces": [
+                    args.project,
+                    args.version
+                ],
+                "prefix": ""
+            }
+        },
+        "relationship": proj_rel
+    }
+
+    bdio = [bdio_header, bdio_project, comps_layers, comps_recipes]
+    if not write_bdio(bdio):
+        sys.exit(3)
+
+
+def get_projver(bd, pargs):
+    params = {
+        'q': "name:" + pargs.project,
+        'sort': 'name',
+    }
+    projects = bd.get_resource('projects', params=params, items=False)
+
+    if projects['totalCount'] == 0:
+        print("ERROR: Project '{}' does not exist".format(pargs.project))
+        sys.exit(2)
+
+    projects = bd.get_resource('projects', params=params)
+    for proj in projects:
+        versions = bd.get_resource('versions', parent=proj, params=params)
+        for ver in versions:
+            if ver['versionName'] == pargs.version:
+                return proj, ver
+    print("ERROR: Version '{}' does not exist in project '{}'".format(pargs.project, pargs.version))
+    sys.exit(2)
+
+
+def main():
+    global args
+    global bdio
+    global proj
+    global ver
+    global comps_layers
+    global comps_recipes
+    global packages
+    global recipes
+    global comps_recipes
+    global recipe_layer
+    global layers
+    global proj_rel
+    global comps_layers
+    global rep_layers
+    global rep_recipes
+    global do_upload
+    bd = None
+
+    print("Yocto build manifest import into Black Duck Utility v1.14")
     print("---------------------------------------------------------\n")
 
-    if (not check_args()) or (not check_env()) or (not find_files()):
+    if not check_args():
+        sys.exit(1)
+
+    status, bd = check_env()
+    if not status or bd is None or not find_files():
         sys.exit(1)
 
     if args.manifest == "":
@@ -911,117 +1075,46 @@ def main():
         elif os.path.isabs(args.yocto_build_folder):
             print("Working on Yocto build folder '{}'\n".format(args.yocto_build_folder))
         else:
-            print("Working on Yocto build folder '{}' (Absolute path '{}')\n".format(args.yocto_build_folder,
-                                                                                     os.path.abspath(
-                                                                                         args.yocto_build_folder)))
-
-    u = uuid.uuid1()
+            print("Working on Yocto build folder '{}' (Absolute path '{}')\n".format(
+                args.yocto_build_folder, os.path.abspath(args.yocto_build_folder)))
 
     if args.replacefile != "":
         if not proc_replacefile():
             sys.exit(3)
 
     if not args.cve_check_only:
-        try:
-            i = open(args.manifest, "r")
-        except Exception as e:
-            print('ERROR: Unable to open input manifest file {}\n'.format(args.manifest) + str(e))
-            sys.exit(3)
-
-        try:
-            liclines = i.readlines()
-            i.close()
-        except Exception as e:
-            print('ERROR: Unable to read license.manifest file {} \n'.format(args.manifest) + str(e))
-            sys.exit(3)
-
-        print("\nProcessing Bitbake project:")
-        if not proc_license_manifest(liclines):
-            sys.exit(3)
-        proc_layers_in_recipes()
-        proc_recipe_revisions()
-        if not args.no_kb_check:
-            check_recipes(args.kb_recipe_file)
-        proc_layers()
-        proc_recipes()
-
-        # proj_rel is for the project relationship (project to layers)
-
-        mytime = datetime.datetime.now()
-        bdio_header = {
-            "specVersion": "1.1.0",
-            "spdx:name": args.project + "/" + args.version + " yocto/bom",
-            "creationInfo": {
-                "spdx:creator": [
-                    "Tool: Detect-6.3.0",
-                    "Tool: IntegrationBdio-21.0.1"
-                ],
-                "spdx:created": mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            },
-            "@id": "uuid:" + str(u),
-            "@type": "BillOfMaterials",
-            "relationship": []
-        }
-
-        bdio_project = {
-            "name": args.project,
-            "revision": args.version,
-            "@id": "http:yocto/" + args.project + "/" + args.version,
-            "@type": "Project",
-            "externalIdentifier": {
-                "externalSystemTypeId": "@yocto",
-                "externalId": "yocto/" + args.project + "/" + args.version,
-                "externalIdMetaData": {
-                    "forge": {
-                        "name": "yocto",
-                        "separator": ":",
-                        "usePreferredNamespaceAlias": True
-                    },
-                    "pieces": [
-                        args.project,
-                        args.version
-                    ],
-                    "prefix": ""
-                }
-            },
-            "relationship": proj_rel
-        }
-
-        bdio = [bdio_header, bdio_project, comps_layers, comps_recipes]
-        if not write_bdio(bdio):
-            sys.exit(3)
+        proc_yocto_project(args.manifest)
 
         if do_upload:
             print("\nUploading scan to Black Duck server ...")
-            if upload_json(args.output_json):
-                print("Scan file uploaded successfully\nBlack Duck project '{}/{}' created.".format(args.project,
-                                                                                                    args.version))
+            if upload_json(bd, args.output_json):
+                print("Scan file uploaded successfully\nBlack Duck project '{}/{}' created.".format(
+                    args.project, args.version))
             else:
                 print("ERROR: Unable to upload scan file")
                 sys.exit(3)
 
     if args.cve_check_file != "" and not args.no_cve_check:
-        hub = HubInstance()
 
         print("\nProcessing CVEs ...")
 
         if not args.cve_check_only:
             print("Waiting for Black Duck server scan completion before continuing ...")
             # Need to wait for scan to process into queue - sleep 15
-            time.sleep(15)
+            time.sleep(30)
 
         try:
             print("- Reading Black Duck project ...")
-            ver = hub.get_project_version_by_name(args.project, args.version)
+            proj, ver = get_projver(bd, args)
         except Exception as e:
             print("ERROR: Unable to get project version from API\n" + str(e))
             sys.exit(3)
 
-        if not wait_for_scans(hub, ver):
+        if not wait_for_scans(bd, ver):
             print("ERROR: Unable to determine scan status")
             sys.exit(3)
 
-        if not wait_for_bom_completion(hub, ver):
+        if not wait_for_bom_completion(bd, ver):
             print("ERROR: Unable to determine BOM status")
             sys.exit(3)
 
@@ -1064,7 +1157,7 @@ def main():
             CVEs which should be ignored)'''.format(
                     cves_in_bm))
         if len(patched_vulns) > 0:
-            process_patched_cves(hub, ver, patched_vulns)
+            process_patched_cves(bd, ver, patched_vulns)
     print("Done")
 
 
