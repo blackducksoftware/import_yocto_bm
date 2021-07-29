@@ -1,6 +1,6 @@
 {
-  "baseurl": "https://server.blackduck.synopsys.com",
-  "api_token": "API_TOKEN_HERE",
+  "baseurl": "https://SERVER",
+  "api_token": "API_TOKEN",
   "insecure": true,
   "debug": false
 }

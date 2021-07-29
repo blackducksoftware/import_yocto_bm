@@ -669,6 +669,7 @@ def check_recipes(kbrecfile):
     print("	Processed {} recipes from KB".format(len(kbentries)))
     layer = ''
     comp = ''
+    origcomp = ''
     for recipe in recipes.keys():
         ver = recipes[recipe]
 
@@ -806,6 +807,7 @@ parser.add_argument("-o", "--output_json",
                     help='''Output JSON bom file for manual import to Black Duck (instead of uploading the scan 
                     automatically)''',
                     default="")
+parser.add_argument("--code_location_prefix", help="Add prefix to resulting code location name", default="")
 parser.add_argument("-t", "--target", help="Yocto target (default core-poky-sato)", default="core-image-sato")
 parser.add_argument("-m", "--manifest",
                     help="Input build license.manifest file (if not specified will be determined from conf files)",
@@ -869,7 +871,7 @@ def main():
     global rep_recipe
     global do_upload
 
-    print("Yocto build manifest import into Black Duck Utility v1.12")
+    print("Yocto build manifest import into Black Duck Utility v1.13")
     print("---------------------------------------------------------\n")
 
     if (not check_args()) or (not check_env()) or (not find_files()):
@@ -917,13 +919,18 @@ def main():
 
         # proj_rel is for the project relationship (project to layers)
 
+        if args.code_location_prefix != '':
+            clprefix = args.code_location_prefix + '-'
+        else:
+            clprefix = ''
+
         mytime = datetime.datetime.now()
         bdio_header = {
             "specVersion": "1.1.0",
-            "spdx:name": args.project + "/" + args.version + " yocto/bom",
+            "spdx:name": clprefix + args.project + "/" + args.version + " yocto/bom",
             "creationInfo": {
                 "spdx:creator": [
-                    "Tool: Detect-6.3.0",
+                    "Tool: import_yocto_bm-v1.12",
                     "Tool: IntegrationBdio-21.0.1"
                 ],
                 "spdx:created": mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")

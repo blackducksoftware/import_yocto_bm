@@ -11,7 +11,11 @@ The `import_yocto_bm.py` script is designed to import a Yocto project build mani
 
 It can be used as an alternative to the standard Yocto scan process for Black Duck provided within Synopsys Detect, and is mainly focussed on identifying the recipes within the built image as opposed to all recipes in the build environment, but provides additional capabilities including checking against the Black Duck KB, replacing recipe specifications and propagating locally patched CVEs to the Black Duck project.
 
-# LATEST UPDATES - VERSION 1.11
+# LATEST UPDATES - VERSION 1.13
+
+Version 1.13 added --code_location_prefix option
+
+Version 1.12 added new KB data
 
 Version 1.11 fixed a minor issue with AUTOINC component versions.
 
@@ -122,6 +126,8 @@ The `import_yocto_bm.py` usage is shown below:
 				Black Duck project to create (REQUIRED)
 	  -v VERSION, --version VERSION
 				Black Duck project version to create (REQUIRED)
+      --code_location_prefix PREFIX
+                Add PREFIX to the code location name for the generated scan
 	  -y YOCTO_FOLDER, --yocto_build_folder YOCTO_FOLDER
 	  			Yocto build folder (required if CVE check required or
 				manifest file not specified)
