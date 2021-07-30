@@ -55,6 +55,17 @@ def check_args():
         print("Replacefile file '{}' does not exist\nExiting".format(args.replacefile))
         return False
 
+    if args.kb_recipe_dir != '':
+        if not os.path.isdir(args.kb_recipe_dir):
+            print("KB data dir '{}' does not exist\nExiting".format(args.kb_recipe_dir))
+            return False
+        krfile = os.path.join(args.kb_recipe_dir, 'kb_recipes.json')
+        kefile = os.path.join(args.kb_recipe_dir, 'kb_entries.json')
+
+        if not os.path.isfile(krfile) or not os.path.isfile(kefile):
+            print("KB data files do not exist in folder '{}'\nExiting".format(args.kb_recipe_dir))
+            return False
+
     return True
 
 
@@ -539,7 +550,7 @@ def proc_yocto_project(manfile):
     proc_layers_in_recipes()
     proc_recipe_revisions()
     if not args.no_kb_check:
-        check_recipes(args.kb_recipe_file)
+        check_recipes(args.kb_recipe_dir)
     proc_layers()
     proc_recipes()
 
@@ -788,57 +799,92 @@ def proc_replacefile():
     return True
 
 
-def check_recipes(kbrecfile):
-    global recipes, recipe_layer
-    global rep_layers, rep_recipes
+def get_kbrecipelist(kbrecdir):
     import requests
 
     print("- Checking recipes against Black Duck KB ...")
 
-    if kbrecfile != "":
-        if not os.path.isfile(kbrecfile):
-            return
+    if kbrecdir != "":
+        krfile = os.path.join(kbrecdir, 'kb_recipes.json')
+        kefile = os.path.join(kbrecdir, 'kb_entries.json')
 
         try:
-            k = open(kbrecfile, "r")
-            klines = k.readlines()
-            k.close()
+            with open(krfile) as kr:
+                kbrecipes = json.load(kr)
+            with open(kefile) as ke:
+                kbentries = json.load(ke)
+
         except Exception as e:
-            return
+                return None, None
     else:
         print("	Downloading KB recipes ...")
 
-        url = 'https://raw.github.com/matthewb66/import_yocto_bm/master/data/kb_yocto_recipes.txt'
+        url = 'https://raw.github.com/blackducksoftware/import_yocto_bm/master/data/kb_recipes.json'
         r = requests.get(url)
 
         if r.status_code != 200:
             print(
-                '''Unable to download KB recipe data from Github. Unable to download KB recipe data from Github. 
-                Consider downloading manually and using the --kb_recipe_file option.''')
-            return
-        klines = r.text.split("\n")
+                '''Unable to download KB recipe data from Github. 
+                Consider downloading data folder manually and using the --kb_recipe_dir option.''')
+            return None, None
+        # klines = r.text.split("\n")
+        kbrecipes = r.json()
 
-    print("	Reading KB recipes ...")
-    kblayers = []
-    kbrecipes = {}
-    kbentries = []
+        url = 'https://raw.github.com/blackducksoftware/import_yocto_bm/master/data/kb_entries.json'
+        r = requests.get(url)
 
-    for kline in klines:
-        arr = kline.rstrip().split('/')
-        if len(arr) == 3:
-            layer = arr[0]
-            recipe = arr[1]
-            ver = arr[2]
-            if layer not in kblayers:
-                kblayers.append(layer)
+        if r.status_code != 200:
+            print(
+                '''Unable to download KB recipe data from Github. 
+                Consider downloading data folder manually and using the --kb_recipe_dir option.''')
+            return None, None
+        # klines = r.text.split("\n")
+        kbentries = r.json()
 
-            if recipe not in kbrecipes.keys():
-                kbrecipes[recipe] = [layer + "/" + ver]
-            elif layer + "/" + ver not in kbrecipes[recipe]:
-                kbrecipes[recipe].append(layer + "/" + ver)
+    # print("	Reading KB recipes ...")
 
-            if kline not in kbentries:
-                kbentries.append(kline)
+    # for kline in klines:
+    #     arr = kline.rstrip().split('/')
+    #     if len(arr) == 3:
+    #         layer = arr[0]
+    #         recipe = arr[1]
+    #         ver = arr[2]
+    #         if ver == '':
+    #             continue
+    #         if layer not in kblayers:
+    #             kblayers.append(layer)
+    #
+    #         if recipe not in kbrecipes.keys():
+    #             kbrecipes[recipe] = [layer + "/" + ver]
+    #         elif layer + "/" + ver not in kbrecipes[recipe]:
+    #             kbrecipes[recipe].append(layer + "/" + ver)
+    #
+    #         if kline not in kbentries:
+    #             kbentries.append(kline)
+    #
+    # print("	Processed {} recipes from KB".format(len(kbentries)))
+    #
+    # with open('kb_recipes.json', "w") as f:
+    #     f.write(json.dumps(kbrecipes, indent=4))
+    # with open('kb_entries.json', "w") as f:
+    #     f.write(json.dumps(kbentries, indent=4))
+
+    # with open('kb_recipes.json') as kr:
+    #     kbrecipes = json.load(kr)
+    #
+    # with open('kb_entries.json') as ke:
+    #     kbentries = json.load(ke)
+
+    print("	Loaded {} recipes from KB".format(len(kbentries)))
+
+    return kbrecipes, kbentries
+
+
+def check_recipes(kbrecdir):
+    global recipes, recipe_layer
+    global rep_layers, rep_recipes
+
+    kbrecipes, kbentries = get_kbrecipelist(kbrecdir)
 
     keys = ['OK', 'REPLACED', 'REPLACED_NOREVISION', 'REPLACED_NOLAYER+REVISION', 'NOTREPLACED_NOVERSION',
             'NOTREPLACED_NOLAYER+VERSION', 'MISSING', 'SKIPPED']
@@ -846,11 +892,10 @@ def check_recipes(kbrecfile):
     for key in keys:
         report[key] = []
 
-    print("	Processed {} recipes from KB".format(len(kbentries)))
     layer = ''
     origcomp = ''
     for recipe in recipes.keys():
-        print(recipe + "/" + recipes[recipe])
+        # print(recipe + "/" + recipes[recipe])
         ver = recipes[recipe]
 
         if recipe in recipe_layer.keys():
@@ -1039,7 +1084,7 @@ parser.add_argument("--no_cve_check", help="Skip check for and update of patched
 parser.add_argument("--cve_check_file",
                     help="CVE check output file (if not specified will be determined from conf files)", default="")
 parser.add_argument("--no_kb_check", help="Do not check recipes against KB", action='store_true')
-parser.add_argument("--kb_recipe_file", help="KB recipe file local copy", default="")
+parser.add_argument("--kb_recipe_dir", help="KB recipe file local copy", default="")
 parser.add_argument("--report",
                     help="Output report.txt file of matched recipes",
                     default="")
