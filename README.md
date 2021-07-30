@@ -12,9 +12,16 @@ The `import_yocto_bm.py` script is designed to import a Yocto project build mani
 It can be used as an alternative to the standard Yocto scan process for Black Duck provided within Synopsys Detect, and is mainly focussed on identifying the recipes within the built image as opposed to all recipes in the build environment, but provides additional capabilities including checking against the Black Duck KB, replacing recipe specifications and propagating locally patched CVEs to the Black Duck project.
 
 # LATEST UPDATES
-## V1.13
+## V1.15 Beta
+- Changed KB recipe download to use json formatted files
+- Changed --kb_recipe_file to --kb_recipe_dir to support json files
+
+## V1.14 Beta
+- Reworked replacefile logic and improved console reporting
+
+## V1.13 Beta
 - replaced the --debug option with --bblayers_out with the ability to define the input file.
-- Fixed the --report option to use the specified report file (previously always wrote to report.txt
+- Fixed the --report option to use the specified report file (previously always wrote to report.txt)
 - Changed the recipe matching logic to also look for KB matches without revisions (-rX) to support older Yocto versions
 
 ## V1.12
@@ -75,6 +82,7 @@ The proposed process to scan a Yocto project using this script is:
 - NOTREPLACED_NOVERSION = the layer and recipe exist in the KB but the version does not - will not be included in the Black Duck project
 - NOTREPLACED_NOLAYER+VERSION = the recipe exists in the KB but the layer and version do not - will not be included in the Black Duck project
 - MISSING = recipe does not exist in the KB and will not be included in the Black Duck project
+- SKIPPED = recipe is not mapped in bblayers data (corrupt yocto project?) - skipped
 
 3. For the NOTREPLACED_NOVERSION and NOTREPLACED_NOLAYER+VERSION recipes, you could consider using the `--replacefile repfile` option to map to layers/recipes and version/revisions which exist in the KB, rerunning the script to import them. See the section REPLACING LAYER AND RECIPE NAMES below.
 
@@ -160,8 +168,8 @@ The `import_yocto_bm.py` usage is shown below:
 				CVE check output file (if not specified will be
 				determined from conf files)
 	  --no_kb_check         Do not check recipes against KB
-	  --kb_recipe_file KB_RECIPE_FILE
-                        	KB recipe file local copy
+	  --kb_recipe_dir KB_RECIPE_DIR
+                            KB recipe data directory local copy
 	  --report rep.txt	If KB check is performed, produce a list of matched. modified and unmatched recipes
 	  --bblayers_out bbfile
 	  			Can be used to scan a build without access to the build environment - a file 
