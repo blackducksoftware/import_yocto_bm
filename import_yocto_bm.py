@@ -555,13 +555,17 @@ def proc_yocto_project(manfile):
     proc_recipes()
 
     # proj_rel is for the project relationship (project to layers)
+    if args.code_location_prefix != '':
+        clprefix = args.code_location_prefix + '-'
+    else:
+        clprefix = ''
 
     u = uuid.uuid1()
 
     mytime = datetime.datetime.now()
     bdio_header = {
         "specVersion": "1.1.0",
-        "spdx:name": args.project + "/" + args.version + " yocto/bom",
+        "spdx:name": clprefix + args.project + "/" + args.version + " yocto/bom",
         "creationInfo": {
             "spdx:creator": [
                 "Tool: Detect-6.3.0",
@@ -1067,6 +1071,7 @@ parser.add_argument("-o", "--output_json",
                     help='''Output JSON bom file for manual import to Black Duck (instead of uploading the scan 
                     automatically)''',
                     default="")
+parser.add_argument("--code_location_prefix", help="Add prefix to resulting code location name", default="")
 parser.add_argument("-t", "--target", help="Yocto target (default core-poky-sato)", default="core-image-sato")
 parser.add_argument("-m", "--manifest",
                     help="Input build license.manifest file (if not specified will be determined from conf files)",
