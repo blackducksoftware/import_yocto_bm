@@ -9,6 +9,7 @@ import re
 import subprocess
 import shutil
 import time
+import requests
 # from blackduck.HubRestApi import HubInstance
 from blackduck import Client
 
@@ -86,7 +87,7 @@ def check_env():
         try:
             bd.list_resources()
         except Exception as exc:
-            print('Unable to eonnect to BD server - {}'.format(str(exc)))
+            print('Unable to connect to BD server - {}'.format(str(exc)))
             return False, None
 
     if args.bblayers_out != '':
@@ -243,6 +244,27 @@ def find_files():
     return True
 
 
+def get_projver(bd, pargs):
+    params = {
+        'q': "name:" + pargs.project,
+        'sort': 'name',
+    }
+    projects = bd.get_resource('projects', params=params, items=False)
+
+    if projects['totalCount'] == 0:
+        print("ERROR: Project '{}' does not exist".format(pargs.project))
+        sys.exit(2)
+
+    projects = bd.get_resource('projects', params=params)
+    for proj in projects:
+        versions = bd.get_resource('versions', parent=proj, params=params)
+        for ver in versions:
+            if ver['versionName'] == pargs.version:
+                return proj, ver
+    print("ERROR: Version '{}' does not exist in project '{}'".format(pargs.project, pargs.version))
+    sys.exit(2)
+
+
 def proc_license_manifest(liclines):
     global recipes, packages
 
@@ -296,11 +318,14 @@ def proc_layers_in_recipes():
                 if len(arr) > 1:
                     layer = arr[0]
                     ver = arr[1]
-                    recipe_layer[rec] = layer
-                    if rec in recipes.keys():
-                        recipes[rec] = ver
-                    if layer not in layers:
-                        layers.append(layer)
+                    # if rec in recipes.keys():
+                    #     recipes[rec] = ver
+                    # if layer not in layers:
+                    #     layers.append(layer)
+                    if rec in recipes.keys() and recipes[rec] == ver:
+                        recipe_layer[rec] = layer
+                        if layer not in layers:
+                            layers.append(layer)
                 rec = ""
         elif rline.endswith(": ==="):
             bstart = True
@@ -308,9 +333,8 @@ def proc_layers_in_recipes():
 
 
 def proc_recipe_revisions():
-    global licdir, recipes, args, orig_recipes
+    global licdir, recipes, args
 
-    orig_recipes = recipes
     print("- Identifying recipe revisions: ...")
     for recipe in recipes.keys():
         if recipes[recipe].find("AUTOINC") != -1:
@@ -432,7 +456,7 @@ def proc_recipes():
         #         layer_string = rep_layers[recipe_layer[recipe]]
         #     else:
         #         layer_string = recipe_layer[recipe]
-            layer_string = recipe_layer[recipe]
+        #     layer_string = recipe_layer[recipe]
 
             # if recipe in rep_recipes.keys():
             #     recipever_string = rep_recipes[recipe] + "/" + ver
@@ -450,18 +474,18 @@ def proc_recipes():
             #     recipever_string = recipe + "/" + ver
             recipever_string = recipe + "/" + ver
 
-            if recipe + "/" + ver != recipever_string:
-                print(
-                    "INFO: Replaced layer/recipe {}/{} with {}/{} from replacefile".format(
-                        layer, recipe, layer_string, recipever_string))
+            # if recipe + "/" + ver != recipever_string:
+            #     print(
+            #         "INFO: Replaced layer/recipe {}/{} with {}/{} from replacefile".format(
+            #             layer, recipe, layer_string, recipever_string))
 
             comps_recipes.append(
                 {
-                    "@id": "http:yocto/" + layer_string + "/" + recipever_string,
+                    "@id": "http:yocto/" + layer + "/" + recipever_string,
                     "@type": "Component",
                     "externalIdentifier": {
                         "externalSystemTypeId": "@yocto",
-                        "externalId": layer_string + "/" + recipever_string,
+                        "externalId": layer + "/" + recipever_string,
                         "externalIdMetaData": {
                             "forge": {
                                 "name": "yocto",
@@ -471,11 +495,101 @@ def proc_recipes():
                             "pieces": [
                                 recipever_string.replace("/", ",")
                             ],
-                            "prefix": layer_string
+                            "prefix": layer
                         }
                     },
                     "relationship": []
                 })
+
+
+def proc_yocto_project(manfile):
+    global args
+    global bdio
+    global proj
+    global ver
+    global comps_layers
+    global comps_recipes
+    global packages
+    global recipes
+    global comps_recipes
+    global recipe_layer
+    global layers
+    global proj_rel
+    global comps_layers
+    global rep_layers
+    global rep_recipes
+    global do_upload
+
+    try:
+        i = open(manfile, "r")
+    except Exception as e:
+        print('ERROR: Unable to open input manifest file {}\n'.format(manfile) + str(e))
+        sys.exit(3)
+
+    try:
+        liclines = i.readlines()
+        i.close()
+    except Exception as e:
+        print('ERROR: Unable to read license.manifest file {} \n'.format(manfile) + str(e))
+        sys.exit(3)
+
+    print("\nProcessing Bitbake project:")
+    if not proc_license_manifest(liclines):
+        sys.exit(3)
+    proc_layers_in_recipes()
+    proc_recipe_revisions()
+    if not args.no_kb_check:
+        check_recipes(args.kb_recipe_file)
+    proc_layers()
+    proc_recipes()
+
+    # proj_rel is for the project relationship (project to layers)
+
+    u = uuid.uuid1()
+
+    mytime = datetime.datetime.now()
+    bdio_header = {
+        "specVersion": "1.1.0",
+        "spdx:name": args.project + "/" + args.version + " yocto/bom",
+        "creationInfo": {
+            "spdx:creator": [
+                "Tool: Detect-6.3.0",
+                "Tool: IntegrationBdio-21.0.1"
+            ],
+            "spdx:created": mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        },
+        "@id": "uuid:" + str(u),
+        "@type": "BillOfMaterials",
+        "relationship": []
+    }
+
+    bdio_project = {
+        "name": args.project,
+        "revision": args.version,
+        "@id": "http:yocto/" + args.project + "/" + args.version,
+        "@type": "Project",
+        "externalIdentifier": {
+            "externalSystemTypeId": "@yocto",
+            "externalId": "yocto/" + args.project + "/" + args.version,
+            "externalIdMetaData": {
+                "forge": {
+                    "name": "yocto",
+                    "separator": ":",
+                    "usePreferredNamespaceAlias": True
+                },
+                "pieces": [
+                    args.project,
+                    args.version
+                ],
+                "prefix": ""
+            }
+        },
+        "relationship": proj_rel
+    }
+
+    bdio = [bdio_header, bdio_project, comps_layers, comps_recipes]
+    if not write_bdio(bdio):
+        sys.exit(3)
 
 
 def write_bdio(bdio):
@@ -505,17 +619,29 @@ def write_bdio(bdio):
     return True
 
 
-def upload_json(bd, jsonfile):
+def upload_json(bd, filename):
+
+    url = bd.base_url + "/api/scan/data/?mode=replace"
     headers = {
-        # 'Content-Type': "application/ld+json",
-        'Accept': "application/vnd.blackducksoftware.bdio+json",
-        'Content-Type': "application/vnd.blackducksoftware.bdio+json"
+        'X-CSRF-TOKEN': bd.session.auth.csrf_token,
+        'Authorization': 'Bearer ' + bd.session.auth.bearer_token,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
     }
-    with open(jsonfile, "r") as f:
-        r = bd.session.post(bd.base_url + "/api/scan/data/?mode=replace", json=f.read(), headers=headers)
-        if r.status_code == 201:
-            return True
-    return False
+    if filename.endswith('.json') or filename.endswith('.jsonld'):
+        headers['Content-Type'] = 'application/ld+json'
+        with open(filename, "r") as f:
+            response = requests.post(url, headers=headers, data=f)
+    elif filename.endswith('.bdio'):
+        headers['Content-Type'] = 'application/vnd.blackducksoftware.bdio+zip'
+        with open(filename, "rb") as f:
+            response = requests.post(url, headers=headers, data=f)
+    else:
+        raise Exception("Unknown file type")
+    if response.status_code == 201:
+        return True
+    else:
+        return False
 
 
 def patch_vuln(hub, comp):
@@ -642,10 +768,17 @@ def proc_replacefile():
     try:
         r = open(args.replacefile, "r")
         for line in r:
-            if re.search('^LAYER ', line):
-                rep_layers[line.split()[1]] = line.split()[2]
+            # if re.search('^LAYER ', line):
+            #     rep_layers[line.split()[1]] = line.split()[2]
             if re.search('^RECIPE ', line):
+                origrec = line.split()[1]
+                reprec = line.split()[2]
+                if len(origrec.split('/')) != 3 or len(reprec.split('/')) != 3 :
+                    print('Ignored line {} - complete layer/recipe/revision required'.format(line))
+                    continue
                 rep_recipes[line.split()[1]] = line.split()[2]
+            else:
+                print('Ignored line {}'.format(line))
         r.close()
     except Exception as e:
         print("ERROR: Unable to read replacefile file {}\n".format(args.replacefile) + str(e))
@@ -708,22 +841,25 @@ def check_recipes(kbrecfile):
                 kbentries.append(kline)
 
     keys = ['OK', 'REPLACED', 'REPLACED_NOREVISION', 'REPLACED_NOLAYER+REVISION', 'NOTREPLACED_NOVERSION',
-            'NOTREPLACED_NOLAYER+VERSION', 'MISSING']
+            'NOTREPLACED_NOLAYER+VERSION', 'MISSING', 'SKIPPED']
     report = {}
     for key in keys:
         report[key] = []
 
     print("	Processed {} recipes from KB".format(len(kbentries)))
     layer = ''
-    comp = ''
+    origcomp = ''
     for recipe in recipes.keys():
+        print(recipe + "/" + recipes[recipe])
         ver = recipes[recipe]
 
         if recipe in recipe_layer.keys():
-            layer = recipe_layer[recipe]
-            origcomp = layer + "/" + recipe + "/" + orig_recipes[recipe]
+            origlayer = recipe_layer[recipe]
+            layer = origlayer
+            comp = origlayer + "/" + recipe + "/" + recipes[recipe]
+            origcomp = comp
 
-            newlayer_string = layer
+            # newlayer_string = layer
             # if recipe in rep_recipes.keys():
             #     newrecipever_string = rep_recipes[recipe] + "/" + ver
             # elif recipe + "/" + ver in rep_recipes.keys():
@@ -739,19 +875,25 @@ def check_recipes(kbrecfile):
             # else:
             #     newrecipever_string = recipe + "/" + ver
             # comp = newlayer_string + "/" + newrecipever_string
-            comp = origcomp
+
+            if comp in rep_recipes.keys():
+                comp = rep_recipes[comp]
 
             if comp in kbentries:
                 # Component exists in KB
                 report['OK'].append(comp)
+                print('	- OK       - Component {}/{}: Mapped directly'.format(
+                    recipe, recipes[recipe]))
                 continue
-
         else:
-            print('WARNING recipe missing from bitbake-layers output: {}'.format(recipe))
+            print('	- SKIPPED  - Component {}/{}: Recipe missing from bitbake-layers output'.format(
+                recipe, recipes[recipe]))
+            report['SKIPPED'].append(comp)
             continue
 
         # No exact match found in KB list
         val = ver.rfind('-r')
+        ver_norev = ''
         if val > 0:
             ver_norev = ver[:val]
 
@@ -766,15 +908,15 @@ def check_recipes(kbrecfile):
 
                 if layer != arr[0] and ver == arr[1]:
                     # Recipe and version exist in KB - layer is different
-                    print("	- Component {}: Recipe and version exist in KB, but not within the layer '{}' - replaced \
-                        with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver))
+                    print("	- REPLACED - Component {}: Recipe and version exist in KB, but not within the layer '{}' - \
+replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver))
                     recipe_layer[recipe] = arr[0]
                     report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(origcomp, arr[0], recipe, ver))
                     break
                 elif layer == arr[0] and ver_norev == arr[1]:
                     # Layer, Recipe and version without rev exist in KB
-                    print("	- Component {}: Layer, Recipe and version w/o revision in KB - replaced \
-                        with '{}/{}/{}' from KB".format(origcomp, arr[0], recipe, ver_norev))
+                    print("	- REPLACED - Component {}: Layer, Recipe and version w/o revision in KB - replaced \
+with '{}/{}/{}' from KB".format(comp, arr[0], recipe, ver_norev))
                     recipe_layer[recipe] = arr[0]
                     recipes[recipe] = ver_norev
                     report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
@@ -782,8 +924,8 @@ def check_recipes(kbrecfile):
                     break
                 elif layer != arr[0] and ver_norev == arr[1]:
                     # Recipe and version exist in KB - layer is different
-                    print("	- Component {}: Recipe and version exist in KB, but not within the layer '{}' - replaced \
-                        with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver_norev))
+                    print("	- REPLACED - Component {}: Recipe and version exist in KB, but not within the layer '{}' - \
+replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver_norev))
                     recipe_layer[recipe] = arr[0]
                     recipes[recipe] = ver_norev
                     report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
@@ -801,17 +943,14 @@ def check_recipes(kbrecfile):
                             if ver_without_rev == kbver_without_rev:
                                 # Found KB version with a different revision
                                 if layer == kbreclayers[kbrecvers.index(kbver)]:
-                                    print("	- Component {}: Layer, recipe and version exist in KB, but revision does \
-                                        not - replaced with '{}/{}/{}' from KB".format(
-                                            origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
+                                    print("	- REPLACED - Component {}: Layer, recipe and version exist in KB, but \
+revision does not - replaced with '{}/{}/{}' from KB".format(origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
                                     recipes[recipe] = kbver
                                     report['REPLACED_NOREVISION'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
                                         origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
-
                                 else:
-                                    print("	- Component {}: Recipe and version exist in KB, but revision and layer do \
-                                        not - replaced with '{}/{}/{}' from KB".format(
-                                            origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
+                                    print("	- REPLACED - Component {}: Recipe and version exist in KB, but revision \
+and layer do not - replaced with '{}/{}/{}' from KB".format(comp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
                                     recipe_layer[recipe] = kbreclayers[kbrecvers.index(kbver)]
                                     recipes[recipe] = kbver
                                     report['REPLACED_NOLAYER+REVISION'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
@@ -826,9 +965,8 @@ def check_recipes(kbrecfile):
                                     reclist.append(l + '/' + recipe + '/' + r)
                             report['NOTREPLACED_NOVERSION'].append(
                                 "ORIG={} Check layers/recipes in KB - Available versions={}".format(origcomp, reclist))
-                            print("	- Component {}: Recipe exists in KB within the layer but version does not - \
-                                consider using --repfile with a version replacement (available versions {})".format(
-                                    origcomp, reclist))
+                            print("	- SKIPPED  - Component {}: Recipe exists in KB within the layer but version does \
+not - consider using --repfile with a version replacement (available versions {})".format(origcomp, reclist))
                             continue
                         else:
                             # Recipe exists within KB, but layer and version do not
@@ -836,19 +974,22 @@ def check_recipes(kbrecfile):
                             for l, r in zip(kbreclayers, kbrecvers):
                                 if len(l) > 0 and len(r) > 0:
                                     reclist.append(l + '/' + recipe + '/' + r)
-                            print("	- Component {}: Recipe exists in KB but layer and version do not - consider using \
-                                --repfile with a version replacement (available versions {})".format(
-                                    origcomp, reclist))
+                            print("	- SKIPPED  - Component {}: Recipe exists in KB but layer and version do not - \
+consider using --repfile with a version replacement (available versions {})".format(origcomp, reclist))
                             report['NOTREPLACED_NOLAYER+VERSION'].append(
                                 "ORIG={} Check layers/recipes in KB - Available versions={}".format(
                                     origcomp, reclist))
                             continue
             continue
 
-        print("	- Component {} missing from KB - will not be mapped in Black Duck project".format(comp))
-        report['MISSING'].append(comp)
+        print("	- SKIPPED  - Component {}: missing from KB - will not be mapped in Black Duck project".format(origcomp))
+        report['MISSING'].append(origcomp)
 
-    print("	Checked {} recipes from Yocto project ...".format(len(recipes)))
+    print("	Processed {} recipes from Yocto project ({} mapped, {} not mapped, {} skipped) ...".format(
+        len(recipes), len(report['OK']) + len(report['REPLACED']) + len(report['REPLACED_NOREVISION']) +
+        len(report['REPLACED_NOLAYER+REVISION']), len(report['NOTREPLACED_NOVERSION']) +
+        len(report['NOTREPLACED_NOLAYER+VERSION']) + len(report['MISSING']), len(report['SKIPPED']))
+    )
     if args.report != '':
         try:
             repfile = open(args.report, "w")
@@ -919,7 +1060,6 @@ comps_layers = []
 comps_recipes = []
 packages = []
 recipes = {}
-orig_recipes = {}
 recipe_layer = {}
 layers = []
 proj_rel = []
@@ -927,117 +1067,6 @@ rep_layers = {}
 rep_recipes = {}
 do_upload = True
 licdir = ''
-
-
-def proc_yocto_project(manfile):
-    global args
-    global bdio
-    global proj
-    global ver
-    global comps_layers
-    global comps_recipes
-    global packages
-    global recipes
-    global comps_recipes
-    global recipe_layer
-    global layers
-    global proj_rel
-    global comps_layers
-    global rep_layers
-    global rep_recipes
-    global do_upload
-
-    try:
-        i = open(manfile, "r")
-    except Exception as e:
-        print('ERROR: Unable to open input manifest file {}\n'.format(manfile) + str(e))
-        sys.exit(3)
-
-    try:
-        liclines = i.readlines()
-        i.close()
-    except Exception as e:
-        print('ERROR: Unable to read license.manifest file {} \n'.format(manfile) + str(e))
-        sys.exit(3)
-
-    print("\nProcessing Bitbake project:")
-    if not proc_license_manifest(liclines):
-        sys.exit(3)
-    proc_layers_in_recipes()
-    proc_recipe_revisions()
-    if not args.no_kb_check:
-        check_recipes(args.kb_recipe_file)
-    proc_layers()
-    proc_recipes()
-
-    # proj_rel is for the project relationship (project to layers)
-
-    u = uuid.uuid1()
-
-    mytime = datetime.datetime.now()
-    bdio_header = {
-        "specVersion": "1.1.0",
-        "spdx:name": args.project + "/" + args.version + " yocto/bom",
-        "creationInfo": {
-            "spdx:creator": [
-                "Tool: Detect-6.3.0",
-                "Tool: IntegrationBdio-21.0.1"
-            ],
-            "spdx:created": mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        },
-        "@id": "uuid:" + str(u),
-        "@type": "BillOfMaterials",
-        "relationship": []
-    }
-
-    bdio_project = {
-        "name": args.project,
-        "revision": args.version,
-        "@id": "http:yocto/" + args.project + "/" + args.version,
-        "@type": "Project",
-        "externalIdentifier": {
-            "externalSystemTypeId": "@yocto",
-            "externalId": "yocto/" + args.project + "/" + args.version,
-            "externalIdMetaData": {
-                "forge": {
-                    "name": "yocto",
-                    "separator": ":",
-                    "usePreferredNamespaceAlias": True
-                },
-                "pieces": [
-                    args.project,
-                    args.version
-                ],
-                "prefix": ""
-            }
-        },
-        "relationship": proj_rel
-    }
-
-    bdio = [bdio_header, bdio_project, comps_layers, comps_recipes]
-    if not write_bdio(bdio):
-        sys.exit(3)
-
-
-def get_projver(bd, pargs):
-    params = {
-        'q': "name:" + pargs.project,
-        'sort': 'name',
-    }
-    projects = bd.get_resource('projects', params=params, items=False)
-
-    if projects['totalCount'] == 0:
-        print("ERROR: Project '{}' does not exist".format(pargs.project))
-        sys.exit(2)
-
-    projects = bd.get_resource('projects', params=params)
-    for proj in projects:
-        versions = bd.get_resource('versions', parent=proj, params=params)
-        for ver in versions:
-            if ver['versionName'] == pargs.version:
-                return proj, ver
-    print("ERROR: Version '{}' does not exist in project '{}'".format(pargs.project, pargs.version))
-    sys.exit(2)
 
 
 def main():
@@ -1059,14 +1088,14 @@ def main():
     global do_upload
     bd = None
 
-    print("Yocto build manifest import into Black Duck Utility v1.14")
+    print("Yocto build manifest import into Black Duck Utility v1b.15")
     print("---------------------------------------------------------\n")
 
     if not check_args():
         sys.exit(1)
 
     status, bd = check_env()
-    if not status or bd is None or not find_files():
+    if not status or not find_files():
         sys.exit(1)
 
     if args.manifest == "":
