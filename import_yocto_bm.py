@@ -277,7 +277,7 @@ def get_projver(bd, pargs):
 
 
 def proc_license_manifest(liclines):
-    global recipes, packages
+    global recipes_dict, packages_list
 
     print("- Working on recipes from license.manifest: ...")
     entries = 0
@@ -288,21 +288,21 @@ def proc_license_manifest(liclines):
             key = arr[0]
             value = arr[1].strip()
             if key == "PACKAGE NAME":
-                packages.append(value)
+                packages_list.append(value)
             elif key == "PACKAGE VERSION":
                 ver = value
             elif key == "RECIPE NAME":
                 entries += 1
-                if value not in recipes.keys():
-                    recipes[value] = ver
+                if value not in recipes_dict.keys():
+                    recipes_dict[value] = ver
     if entries == 0:
         return False
-    print("	Identified {} recipes from {} packages".format(len(recipes), entries))
+    print("	Identified {} recipes from {} packages".format(len(recipes_dict), entries))
     return True
 
 
 def proc_layers_in_recipes():
-    global layers, recipe_layer, args
+    global layers_list, recipe_layer_dict, args
 
     if args.bblayers_out != '':
         if not os.path.isfile(args.bblayers_out):
@@ -333,29 +333,31 @@ def proc_layers_in_recipes():
                     #     recipes[rec] = ver
                     # if layer not in layers:
                     #     layers.append(layer)
-                    if rec in recipes.keys() and recipes[rec] == ver:
-                        recipe_layer[rec] = layer
-                        if layer not in layers:
-                            layers.append(layer)
+                    if rec in recipes_dict.keys() and recipes_dict[rec] == ver:
+                        recipe_layer_dict[rec] = layer
+                        if layer not in layers_list:
+                            layers_list.append(layer)
                 rec = ""
         elif rline.endswith(": ==="):
             bstart = True
-    print("	Discovered {} layers".format(len(layers)))
+    print("	Discovered {} layers".format(len(layers_list)))
 
 
 def proc_recipe_revisions():
-    global licdir, recipes, args
+    global licdir
+    global recipes_dict
+    global args
 
     print("- Identifying recipe revisions: ...")
-    for recipe in recipes.keys():
-        if recipes[recipe].find("AUTOINC") != -1:
+    for recipe in recipes_dict.keys():
+        if recipes_dict[recipe].find("AUTOINC") != -1:
             # recipes[recipe] = recipes[recipe].split("AUTOINC")[0] + "X-" + recipes[recipe].split("-")[-1]
-            recipes[recipe] = recipes[recipe].split("AUTOINC")[0] + "X"
-        if recipes[recipe].find("+svn") != -1:
+            recipes_dict[recipe] = recipes_dict[recipe].split("AUTOINC")[0] + "X"
+        if recipes_dict[recipe].find("+svn") != -1:
             # recipes[recipe] = recipes[recipe].split("+svn")[0] + "+svnX" + recipes[recipe].split("-")[-1]
-            recipes[recipe] = recipes[recipe].split("+svn")[0] + "+svnX"
+            recipes_dict[recipe] = recipes_dict[recipe].split("+svn")[0] + "+svnX"
         if args.bblayers_out != '':
-            recipes[recipe] += "-r0"
+            recipes_dict[recipe] += "-r0"
             continue
 
         recipeinfo = os.path.join(licdir, recipe, "recipeinfo")
@@ -371,35 +373,38 @@ def proc_recipe_revisions():
                 if line.find("PR:") != -1:
                     arr = line.split(":")
                     rev = arr[1].strip()
-                    recipes[recipe] += "-" + rev
+                    recipes_dict[recipe] += "-" + rev
         else:
             print("ERROR: Recipeinfo file {} does not exist\n".format(recipeinfo))
             sys.exit(3)
 
 
 def proc_layers():
-    global proj_rel, comps_layers, layers, recipes, recipe_layer
-    global rep_layers
+    global bdio_proj_rel_list
+    global bdio_comps_layers
+    global layers_list
+    global recipes_dict
+    global recipe_layer_dict
 
     print("- Processing layers: ...")
     # proj_rel is for the project relationship (project to layers)
-    for layer in layers:
+    for layer in layers_list:
         # if layer in rep_layers.keys():
         #     rep_layer = rep_layers[layer]
         # else:
         #     rep_layer = layer
-        proj_rel.append(
+        bdio_proj_rel_list.append(
             {
                 # "related": "http:yocto/" + rep_layer + "/1.0",
                 "related": "http:yocto/" + layer + "/1.0",
                 "relationshipType": "DYNAMIC_LINK"
             }
         )
-        layer_rel = []
-        for recipe in recipes.keys():
-            if recipe in recipe_layer.keys() and recipe_layer[recipe] == layer:
+        bdio_layer_rel = []
+        for recipe in recipes_dict.keys():
+            if recipe in recipe_layer_dict.keys() and recipe_layer_dict[recipe] == layer:
                 # print("DEBUG: " + recipe)
-                ver = recipes[recipe]
+                ver = recipes_dict[recipe]
 
                 # DEBUG - replacefile
                 # rec_layer = rep_layer
@@ -419,7 +424,7 @@ def proc_layers():
                 #     recipever_string = recipe + "/" + ver
                 recipever_string = recipe + "/" + ver
 
-                layer_rel.append(
+                bdio_layer_rel.append(
                     {
                         # "related": "http:yocto/" + rec_layer + "/" + recipever_string,
                         "related": "http:yocto/" + layer + "/" + recipever_string,
@@ -427,7 +432,7 @@ def proc_layers():
                     }
                 )
 
-        comps_layers.append({
+        bdio_comps_layers.append({
             # "@id": "http:yocto/" + rep_layer + "/1.0",
             "@id": "http:yocto/" + layer + "/1.0",
             "@type": "Component",
@@ -449,20 +454,22 @@ def proc_layers():
                     "prefix": "meta"
                 }
             },
-            "relationship": layer_rel
+            "relationship": bdio_layer_rel
         })
 
 
 def proc_recipes():
-    global recipes, recipe_layer, comps_recipes
-    global rep_recipes, rep_layers
+    global recipes_dict
+    global recipe_layer_dict
+    global bdio_comps_recipes
+    global replace_recipes_dict
 
     print("- Processing recipes: ...")
-    for recipe in recipes.keys():
-        ver = recipes[recipe]
+    for recipe in recipes_dict.keys():
+        ver = recipes_dict[recipe]
 
-        if recipe in recipe_layer.keys():
-            layer = recipe_layer[recipe]
+        if recipe in recipe_layer_dict.keys():
+            layer = recipe_layer_dict[recipe]
         #     if recipe_layer[recipe] in rep_layers.keys():
         #         layer_string = rep_layers[recipe_layer[recipe]]
         #     else:
@@ -490,7 +497,7 @@ def proc_recipes():
             #         "INFO: Replaced layer/recipe {}/{} with {}/{} from replacefile".format(
             #             layer, recipe, layer_string, recipever_string))
 
-            comps_recipes.append(
+            bdio_comps_recipes.append(
                 {
                     "@id": "http:yocto/" + layer + "/" + recipever_string,
                     "@type": "Component",
@@ -518,17 +525,14 @@ def proc_yocto_project(manfile):
     global bdio
     global proj
     global ver
-    global comps_layers
-    global comps_recipes
-    global packages
-    global recipes
-    global comps_recipes
-    global recipe_layer
-    global layers
-    global proj_rel
-    global comps_layers
-    global rep_layers
-    global rep_recipes
+    global bdio_comps_layers
+    global packages_list
+    global recipes_dict
+    global bdio_comps_recipes
+    global recipe_layer_dict
+    global layers_list
+    global bdio_proj_rel_list
+    global replace_recipes_dict
     global do_upload
 
     try:
@@ -599,10 +603,10 @@ def proc_yocto_project(manfile):
                 "prefix": ""
             }
         },
-        "relationship": proj_rel
+        "relationship": bdio_proj_rel_list
     }
 
-    bdio = [bdio_header, bdio_project, comps_layers, comps_recipes]
+    bdio = [bdio_header, bdio_project, bdio_comps_layers, bdio_comps_recipes]
     if not write_bdio(bdio):
         sys.exit(3)
 
@@ -777,7 +781,7 @@ def wait_for_scans(bd, ver):
 
 def proc_replacefile():
     global args
-    global rep_layers, rep_recipes
+    global replace_recipes_dict
 
     print("- Processing replacefile {}: ...".format(args.replacefile))
     try:
@@ -788,10 +792,10 @@ def proc_replacefile():
             if re.search('^RECIPE ', line):
                 origrec = line.split()[1]
                 reprec = line.split()[2]
-                if len(origrec.split('/')) != 3 or len(reprec.split('/')) != 3 :
+                if len(origrec.split('/')) != 3 or len(reprec.split('/')) != 3:
                     print('Ignored line {} - complete layer/recipe/revision required'.format(line))
                     continue
-                rep_recipes[line.split()[1]] = line.split()[2]
+                replace_recipes_dict[line.split()[1]] = line.split()[2]
             else:
                 print('Ignored line {}'.format(line))
         r.close()
@@ -799,7 +803,7 @@ def proc_replacefile():
         print("ERROR: Unable to read replacefile file {}\n".format(args.replacefile) + str(e))
         return False
 
-    print("	{} replace entries processed".format(len(rep_layers) + len(rep_recipes)))
+    print("	{} replace entries processed".format(len(replace_recipes_dict)))
     return True
 
 
@@ -819,7 +823,7 @@ def get_kbrecipelist(kbrecdir):
                 kbentries = json.load(ke)
 
         except Exception as e:
-                return None, None
+            return None, None
     else:
         print("	Downloading KB recipes ...")
 
@@ -885,8 +889,9 @@ def get_kbrecipelist(kbrecdir):
 
 
 def check_recipes(kbrecdir):
-    global recipes, recipe_layer
-    global rep_layers, rep_recipes
+    global recipes_dict
+    global recipe_layer_dict
+    global replace_recipes_dict
 
     kbrecipes, kbentries = get_kbrecipelist(kbrecdir)
 
@@ -897,15 +902,15 @@ def check_recipes(kbrecdir):
         report[key] = []
 
     layer = ''
-    origcomp = ''
-    for recipe in recipes.keys():
+    comp = ''
+    for recipe in recipes_dict.keys():
         # print(recipe + "/" + recipes[recipe])
-        ver = recipes[recipe]
+        ver = recipes_dict[recipe]
 
-        if recipe in recipe_layer.keys():
-            origlayer = recipe_layer[recipe]
+        if recipe in recipe_layer_dict.keys():
+            origlayer = recipe_layer_dict[recipe]
             layer = origlayer
-            comp = origlayer + "/" + recipe + "/" + recipes[recipe]
+            comp = origlayer + "/" + recipe + "/" + recipes_dict[recipe]
             origcomp = comp
 
             # newlayer_string = layer
@@ -925,18 +930,18 @@ def check_recipes(kbrecdir):
             #     newrecipever_string = recipe + "/" + ver
             # comp = newlayer_string + "/" + newrecipever_string
 
-            if comp in rep_recipes.keys():
-                comp = rep_recipes[comp]
+            if comp in replace_recipes_dict.keys():
+                comp = replace_recipes_dict[comp]
 
             if comp in kbentries:
                 # Component exists in KB
                 report['OK'].append(comp)
                 print('	- OK       - Component {}/{}: Mapped directly'.format(
-                    recipe, recipes[recipe]))
+                    recipe, recipes_dict[recipe]))
                 continue
         else:
             print('	- SKIPPED  - Component {}/{}: Recipe missing from bitbake-layers output'.format(
-                recipe, recipes[recipe]))
+                recipe, recipes_dict[recipe]))
             report['SKIPPED'].append(comp)
             continue
 
@@ -959,15 +964,15 @@ def check_recipes(kbrecdir):
                     # Recipe and version exist in KB - layer is different
                     print("	- REPLACED - Component {}: Recipe and version exist in KB, but not within the layer '{}' - \
 replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver))
-                    recipe_layer[recipe] = arr[0]
+                    recipe_layer_dict[recipe] = arr[0]
                     report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(origcomp, arr[0], recipe, ver))
                     break
                 elif layer == arr[0] and ver_norev == arr[1]:
                     # Layer, Recipe and version without rev exist in KB
                     print("	- REPLACED - Component {}: Layer, Recipe and version w/o revision in KB - replaced \
 with '{}/{}/{}' from KB".format(comp, arr[0], recipe, ver_norev))
-                    recipe_layer[recipe] = arr[0]
-                    recipes[recipe] = ver_norev
+                    recipe_layer_dict[recipe] = arr[0]
+                    recipes_dict[recipe] = ver_norev
                     report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
                         origcomp, arr[0], recipe, ver_norev))
                     break
@@ -975,8 +980,8 @@ with '{}/{}/{}' from KB".format(comp, arr[0], recipe, ver_norev))
                     # Recipe and version exist in KB - layer is different
                     print("	- REPLACED - Component {}: Recipe and version exist in KB, but not within the layer '{}' - \
 replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver_norev))
-                    recipe_layer[recipe] = arr[0]
-                    recipes[recipe] = ver_norev
+                    recipe_layer_dict[recipe] = arr[0]
+                    recipes_dict[recipe] = ver_norev
                     report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
                         origcomp, arr[0], recipe, ver_norev))
                     break
@@ -993,15 +998,16 @@ replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver_no
                                 # Found KB version with a different revision
                                 if layer == kbreclayers[kbrecvers.index(kbver)]:
                                     print("	- REPLACED - Component {}: Layer, recipe and version exist in KB, but \
-revision does not - replaced with '{}/{}/{}' from KB".format(origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
-                                    recipes[recipe] = kbver
+revision does not - replaced with '{}/{}/{}' from KB".format(origcomp, kbreclayers[kbrecvers.index(kbver)], recipe,
+                                                             kbver))
+                                    recipes_dict[recipe] = kbver
                                     report['REPLACED_NOREVISION'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
                                         origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
                                 else:
                                     print("	- REPLACED - Component {}: Recipe and version exist in KB, but revision \
 and layer do not - replaced with '{}/{}/{}' from KB".format(comp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
-                                    recipe_layer[recipe] = kbreclayers[kbrecvers.index(kbver)]
-                                    recipes[recipe] = kbver
+                                    recipe_layer_dict[recipe] = kbreclayers[kbrecvers.index(kbver)]
+                                    recipes_dict[recipe] = kbver
                                     report['REPLACED_NOLAYER+REVISION'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
                                         origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
                                 break
@@ -1035,7 +1041,7 @@ consider using --repfile with a version replacement (available versions {})".for
         report['MISSING'].append(origcomp)
 
     print("	Processed {} recipes from Yocto project ({} mapped, {} not mapped, {} skipped) ...".format(
-        len(recipes), len(report['OK']) + len(report['REPLACED']) + len(report['REPLACED_NOREVISION']) +
+        len(recipes_dict), len(report['OK']) + len(report['REPLACED']) + len(report['REPLACED_NOREVISION']) +
         len(report['REPLACED_NOLAYER+REVISION']), len(report['NOTREPLACED_NOVERSION']) +
         len(report['NOTREPLACED_NOLAYER+VERSION']) + len(report['MISSING']), len(report['SKIPPED']))
     )
@@ -1104,17 +1110,14 @@ if args.bblayers_out != '':
     args.no_cve_check = True
 
 bdio = []
-proj = args.project
-ver = args.version
-comps_layers = []
-comps_recipes = []
-packages = []
-recipes = {}
-recipe_layer = {}
-layers = []
-proj_rel = []
-rep_layers = {}
-rep_recipes = {}
+bdio_comps_layers = []
+bdio_comps_recipes = []
+packages_list = []
+recipes_dict = {}
+recipe_layer_dict = {}
+layers_list = []
+bdio_proj_rel_list = []
+replace_recipes_dict = {}
 do_upload = True
 licdir = ''
 
@@ -1122,19 +1125,14 @@ licdir = ''
 def main():
     global args
     global bdio
-    global proj
-    global ver
-    global comps_layers
-    global comps_recipes
-    global packages
-    global recipes
-    global comps_recipes
-    global recipe_layer
-    global layers
-    global proj_rel
-    global comps_layers
-    global rep_layers
-    global rep_recipes
+    global bdio_comps_layers
+    global bdio_comps_recipes
+    global packages_list
+    global recipes_dict
+    global recipe_layer_dict
+    global layers_list
+    global bdio_proj_rel_list
+    global replace_recipes_dict
     global do_upload
     bd = None
 
@@ -1225,7 +1223,7 @@ def main():
                     pkgvuln['status'] = value
                     if pkgvuln['status'] == "Patched":
                         patched_vulns.append(pkgvuln['CVE'])
-                        if pkgvuln['package'] in packages:
+                        if pkgvuln['package'] in packages_list:
                             cves_in_bm += 1
                     pkgvuln = {}
 
