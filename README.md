@@ -11,14 +11,26 @@ The `import_yocto_bm.py` script is designed to import a Yocto project build mani
 
 It can be used as an alternative to the standard Yocto scan process for Black Duck provided within Synopsys Detect, and is mainly focussed on identifying the recipes within the built image as opposed to all recipes in the build environment, but provides additional capabilities including checking against the Black Duck KB, replacing recipe specifications and propagating locally patched CVEs to the Black Duck project.
 
-# LATEST UPDATES - VERSION 1.13
+# LATEST UPDATES
+## V1.15 Beta
+- Changed KB recipe download to use json formatted files
+- Changed --kb_recipe_file to --kb_recipe_dir to support json files
 
-Version 1.13 added --code_location_prefix option
+## V1.14 Beta
+- Reworked replacefile logic and improved console reporting
 
-Version 1.12 added new KB data
+## V1.13 Beta
+- replaced the --debug option with --bblayers_out with the ability to define the input file.
+- Fixed the --report option to use the specified report file (previously always wrote to report.txt)
+- Changed the recipe matching logic to also look for KB matches without revisions (-rX) to support older Yocto versions
 
-Version 1.11 fixed a minor issue with AUTOINC component versions.
+## V1.12
+- Minor bug fixes
 
+## V1.11
+- Fixed a minor issue with AUTOINC component versions.
+
+## Previous Versions
 Versions 1.10 and 1.9 added fixes for the KB recipe lookup, and a new report output showing the list of recipes matched, modified or not matchable (use `--report reort.txt` option) as well as updating the list of KB recipes located in the data file.
 
 Version 1.8 will automatically download a list of all Yocto projects stored in the Black Duck KB and checks the recipes in the local project, remapping recipes to origin layers or revisions to reduce the number of non matched components in the resulting Black Duck project. This functionality can be skipped using the --no_kb_check option, or if the download of the KB data from Github is not possible within the script, the --kb_recipe_file option allows a local copy to be used.
@@ -29,9 +41,9 @@ The DEPLOY_DIR and TMP_DIR values extracted from conf files now support the use 
 
 The default Yocto scan process for Black Duck is to determine Bitbake dependencies using Synopsys Detect (see [Synopsys Detect - scanning Yocto](https://synopsys.atlassian.net/wiki/spaces/INTDOCS/pages/631276245/Package+Managers+Supported+by+Detect)).
 
-You should NOT use Black Duck Signature scanning for whole Yocto projects (except for custom recipes which may contain OSS which you want to identify). Signature scanning will not function accurately on Yocto projects because the code is modified locally by change/diff files and no reference copy of the changed code is available, meaning that Signature matching will not be able to determine the correct Yocto modified OSS components). Yocto projects are also very large and Signature scanning can consume large volumes of server resources without providing accurate matching.
+You should NOT use Black Duck Signature scanning for whole Yocto projects (except for custom recipes which may contain OSS which you want to identify). Signature scanning will not function accurately on Yocto projects because the code is modified locally by change/diff files and no reference copy of the changed code is available, meaning that Signature matching will not be able to determine the correct Yocto modified OSS components. Yocto projects are also very large and Signature scanning can consume large volumes of server resources without providing accurate matching.
 
-In this mode, Synopsys Detect calls Bitbake to report the project layers and recipes, checking against the recipes reported at OpenEmbedded.org (refer to [layers.openembedded.org](http://layers.openembedded.org/) to identify layers and recipes which will be mapped) and creating a Black Duck project containing the mapped components. Recipes in layers not reported at OpenEmbedded.org will not be imported into Black Duck, and you should consider using other Black Duck scan techniques to identify OSS within specific custom recipes referenced in the build. Note also that moving original OSS recipes to new layers will also stop them being reported.
+When used to scan a Yocto project, Synopsys Detect calls Bitbake to report the project layers and recipes, checking against the recipes reported at OpenEmbedded.org (refer to [layers.openembedded.org](http://layers.openembedded.org/) to identify layers and recipes which will be mapped) and creating a Black Duck project containing the mapped components. Recipes in layers not reported at OpenEmbedded.org will not be imported into Black Duck, and you should consider using other Black Duck scan techniques to identify OSS within specific custom recipes referenced in the build. Note also that moving original OSS recipes to new layers will also stop them being reported.
 
 The resulting project will contain mapped recipes/layers including those used to create the image but which may not delivered in the built image. Recipe matching also requires that OSS components are used within standard recipes/revisions and within the original layer. If you copy a recipe to a new or different layer, it will not be matched in the Black Duck project.
 
@@ -43,19 +55,19 @@ To perform a Yocto scan using Synopsys Detect:
 
 This script operates on a built Yocto project, identifying the build manifest containing __only the recipes which are within the built image__ as opposed to the superset of all recipes used to build the distribution (including build tools etc.) produced by Synopsys Detect. This script also optionally supports extracting a list of locally patched CVEs from Bitbake and marking them as patched in the Black Duck project.
 
-Recipes/layers are checked against OpenEmbedded.org and those which match are added to the created Black Duck project. See the note above about custom recipes and origin recipes moved to new layers which will not be detected.
+Recipes/layers are checked against the recipes maintained in the Black Duck KB and extracted from OpenEmbedded.org and those which match are added to the created Black Duck project.
 
 The script must be executed on a Linux workstation where Yocto has been installed and after a successful Bitbake build.
 
-If invoked in the Yocto build folder (or the build folder is manually specified using the -y option), then it will locate the license-manifest file automatically in the tmp/deploy hierarchy.
+If invoked in the Yocto build folder (or the build folder is manually specified using the -y option), then it will locate the license-manifest file automatically in the tmp/deploy hierarchy. Alternatively you can specify the license.manifest file as a script option. 
 
-If the Bitbake build was performed with the Yocto `cve_check` class configured, then the script will also optionally locate the CVE log exported by CVE check, extract patched CVEs and set the remediation status of matching CVEs in the Black Duck project.
+If the Bitbake build was performed with the Yocto `cve_check` class configured, then the script will also locate the CVE log exported by CVE check, extract patched CVEs and set the remediation status of matching CVEs in the Black Duck project.
 
 It requires access to the Black Duck server via the API (see Prerequisites below) unless the -o option is used to create the output scan file for manual upload.
 
 # OVERALL SCAN PROCESS USING IMPORT_YOCTO_BM
 
-Using this script will allow standard OSS recipes to be imported to the Black Duck project. It will also identify where standard OSS recipes have been moved to new or different layers, and match close revisions, but the version must be the same.
+Using this script will allow standard OSS recipes to be imported to the Black Duck project. It will also identify where standard OSS recipes have been moved to new or different layers, and match close revisions or versions which exist in the Black Duck KB.
 
 The proposed process to scan a Yocto project using this script is:
 
@@ -70,8 +82,9 @@ The proposed process to scan a Yocto project using this script is:
 - NOTREPLACED_NOVERSION = the layer and recipe exist in the KB but the version does not - will not be included in the Black Duck project
 - NOTREPLACED_NOLAYER+VERSION = the recipe exists in the KB but the layer and version do not - will not be included in the Black Duck project
 - MISSING = recipe does not exist in the KB and will not be included in the Black Duck project
+- SKIPPED = recipe is not mapped in bblayers data (corrupt yocto project?) - skipped
 
-3. For the NOTREPLACED_NOVERSION and NOTREPLACED_NOLAYER+VERSION recipes, you could consider using the `--replacefile repfile` option to map to layers/recipes and version/revisions which exist in the KB, rerunning the script to import them. See the section REPLACING LAYER AND RECIPE NAMES below.
+3. For the NOTREPLACED_NOVERSION and NOTREPLACED_NOLAYER+VERSION recipes, you could consider using the `--replacefile repfile` option to map to layers/recipes and version/revisions which exist in the KB, rerunning the script to import them. See the section REPLACING RECIPE NAMES below.
 
 4. For the MISSING recipes, these are almost certainly custom recipes either containing new OSS or a mix of custom application code and OSS. Identify the layers which contain mainly custom recipes, and use standard Black Duck signature scanning (and optionally snippet scanning) to search for modified OSS within these sub-folders only. __Do not run a signature or snippet scan on the entire Yocto project__ - make sure you only use this for the custom layers and recipes. You can optionally combine the dependency and signature scans in the same Black Duck project.
 
@@ -122,12 +135,16 @@ The `import_yocto_bm.py` usage is shown below:
 
 	optional arguments:
 	  -h, --help            show this help message and exit
+      --blackduck_url BLACKDUCK_URL
+                            Black Duck server URL
+      --blackduck_api_token BLACKDUCK_API_TOKEN
+                            Black Duck API token
+      --blackduck_trust_cert
+                            Black Duck trust server cert
 	  -p PROJECT, --project PROJECT
 				Black Duck project to create (REQUIRED)
 	  -v VERSION, --version VERSION
 				Black Duck project version to create (REQUIRED)
-      --code_location_prefix PREFIX
-                Add PREFIX to the code location name for the generated scan
 	  -y YOCTO_FOLDER, --yocto_build_folder YOCTO_FOLDER
 	  			Yocto build folder (required if CVE check required or
 				manifest file not specified)
@@ -157,9 +174,14 @@ The `import_yocto_bm.py` usage is shown below:
 				CVE check output file (if not specified will be
 				determined from conf files)
 	  --no_kb_check         Do not check recipes against KB
-	  --kb_recipe_file KB_RECIPE_FILE
-                        	KB recipe file local copy
-	  --report rep.txt	If KB check is performed, produce a list of matched. modified and unmatched recipes.
+	  --kb_recipe_dir KB_RECIPE_DIR
+                            KB recipe data directory local copy
+	  --report rep.txt	If KB check is performed, produce a list of matched. modified and unmatched recipes
+	  --bblayers_out bbfile
+	  			Can be used to scan a build without access to the build environment - a file 
+				containing the output of the command `bitbake-layers show-recipes '*'` instead of 
+				calling the command directly as well as the license.manifest file to be specified 
+				with -m. Also skips identification of recipe revisions (assumes all revisions are -r0)
 
 
 The script will use the invocation folder as the Yocto build folder (e.g. yocto_zeus/poky/build) by default (if there is a `build` sub-folder then it will be used instead). The `--yocto_folder` option can be used to specify the Yocto build folder as opposed to the invocation folder.
@@ -182,45 +204,39 @@ Use the `--no_cve_check` option to skip the patched CVE identification and updat
 
 # PRECONFIGURATION
 
-You will need to run the following commands (change the location as required):
+You will need to run the following Yocto project commands (change the location as required) before using the script:
 
     cd /home/users/myuser/yocto_zeus/poky
     source oe-init-build-env
 
-The `oe-init-build-env` script will change directory into the Yocto build sub-folder.
+The `oe-init-build-env` script will set the Yocto environment and change directory into the Yocto build sub-folder.
 
-A `.restconfig.json` file must be created within the build folder: example `.restconfig.json` file:
+If you want to upload the resulting project direct to Black Duck (and are not using the --output_json option), you specify the Black Duck server with URL & API_TOKEN either using command line options:
 
-    {
-      "baseurl": "https://SERVER_URL",
-      "api_token": "TOKEN",
-      "insecure": true,
-      "debug": false
-    }
+      --blackduck_url SERVER_URL
+      --blackduck_api_token TOKEN
+      --blackduck_trust_cert (specify if untrusted CA certificate used for BD server)
+
+OR by setting environment variables:
+
+      BLACKDUCK_URL=https://SERVER_URL
+      BLACKDUCK_API_TOKEN=TOKEN
 
 Where `SERVER_URL` is the Black Duck server URL and `TOKEN` is the Black Duck API token.
 
-# REPLACING LAYER AND RECIPE NAMES
+# REPLACING RECIPE NAMES
 
-Layers and recipes extracted from the project are combined by Black Duck and used to lookup original OSS components at https://layers.openembedded.org. If OSS components are moved from original layers to a new (custom) or different layer which is not shown at https://layers.openembedded.org then they will not be mapped in the resulting Black Duck project.
+Layers and recipes extracted from the project are combined by Black Duck and used to lookup original OSS components at https://layers.openembedded.org. If OSS components are moved from original layers to a new (custom) or different layer which is not shown at https://layers.openembedded.org and which cannot be mapped by a close neighbour in the script, then they will not be mapped in the resulting Black Duck project.
 
-To reference the original component, you can use the `--replacefile REPFILE` option to map OSS components back to original layers or original names.
+To reference a specific original component, you can use the `--replacefile REPFILE` option to map OSS components back to original recipes.
 
 The replacefile option can also be used to remap new OSS component versions (not listed at https://layers.openembedded.org) to previous versions which are listed.
 
 Example REPFILE content is shown below:
 
-	LAYER meta-customlayer meta-oe
-	RECIPE alsa-lib2 alsa-lib
-	RECIPE alsa-lib/1.2.1.2-r5 alsa-lib/1.2.1.2-r0
-	RECIPE meta-customlayer/alsa-lib meta/alsa-lib
-	RECIPE meta-customlayer/alsa-lib/1.2.1.2-r0 meta/alsa-lib/1.2.1.2-r0
+	RECIPE meta-customlayer/alsa-lib/1.2.1.2-r5 meta/alsa-lib/1.2.1.2-r0
 
-The `LAYER` line will remap all recipes from the `meta-customlayer` layer to `meta-oe`.
-The 1st `RECIPE` line will remap all recipe versions called `alsa-lib2` to `alsa-lib` across all layers .
-The 2nd `RECIPE` line will remap the recipe and version `alsa-lib/1.2.1.2-r5` across all layers to `alsa-lib/1.2.1.2-r0`.
-The 3rd `RECIPE` line will remap all versions of the recipe `alsa-lib` in the `meta-customlayer` layer to `meta/alsa-lib`.
-The 4th `RECIPE` line will remap recipe and version `alsa-lib/1.2.1.2-r5` in the `meta-customlayer` to `meta/alsa-lib/1.2.1.2-r0`.
+which will remap recipe and version `alsa-lib/1.2.1.2-r5` in the `meta-customlayer` to `meta/alsa-lib/1.2.1.2-r0` in teh Black Duck KB.
 
 # EXAMPLE USAGE
 
