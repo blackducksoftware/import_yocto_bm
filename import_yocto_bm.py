@@ -273,7 +273,7 @@ def get_projver(bd, pargs):
             if ver['versionName'] == pargs.version:
                 return proj, ver
     print("ERROR: Version '{}' does not exist in project '{}'".format(pargs.project, pargs.version))
-    sys.exit(2)
+    return None, None
 
 
 def proc_license_manifest(liclines):
@@ -663,7 +663,7 @@ def upload_json(bd, filename):
         return False
 
 
-def patch_vuln(hub, comp):
+def patch_vuln(bd, comp):
     status = "PATCHED"
     comment = "Patched by bitbake recipe"
 
@@ -672,8 +672,12 @@ def patch_vuln(hub, comp):
 
         comp['remediationStatus'] = status
         comp['remediationComment'] = comment
-        result = hub.execute_put(comp['_meta']['href'], data=comp)
-        if result.status_code != 202:
+        # result = hub.execute_put(comp['_meta']['href'], data=comp)
+        href = comp['_meta']['href']
+        # href = '/'.join(href.split('/')[3:])
+        r = bd.session.put(href, json=comp)
+        r.raise_for_status()
+        if r.status_code != 202:
             return False
 
     except Exception as e:
@@ -683,38 +687,41 @@ def patch_vuln(hub, comp):
     return True
 
 
-def process_patched_cves(hub, version, vuln_list):
+def process_patched_cves(bd, version, vuln_list):
     global args
 
     try:
-        vulnerable_components_url = hub.get_link(version, "vulnerable-components") + "?limit=9999"
-        custom_headers = {'Accept': 'application/vnd.blackducksoftware.bill-of-materials-6+json'}
-        response = hub.execute_get(vulnerable_components_url, custom_headers=custom_headers)
-        vulnerable_bom_components = response.json().get('items', [])
+        # vulnerable_components_url = hub.get_link(version, "vulnerable-components") + "?limit=9999"
+        headers = {'Accept': 'application/vnd.blackducksoftware.bill-of-materials-6+json'}
+        # response = hub.execute_get(vulnerable_components_url, custom_headers=custom_headers)
+        # vulnerable_bom_components = response.json().get('items', [])
+        resp = bd.get_json(version['_meta']['href'] + '/vulnerable-bom-components?limit=5000', headers=headers)
 
         count = 0
 
-        for comp in vulnerable_bom_components:
+        for comp in resp['items']:
             if comp['vulnerabilityWithRemediation']['source'] == "NVD":
                 if comp['vulnerabilityWithRemediation']['vulnerabilityName'] in vuln_list:
-                    if patch_vuln(hub, comp):
+                    if patch_vuln(bd, comp):
                         print("		Patched {}".format(comp['vulnerabilityWithRemediation']['vulnerabilityName']))
                         count += 1
             elif comp['vulnerabilityWithRemediation']['source'] == "BDSA":
-                vuln_url = hub.get_apibase() + "/vulnerabilities/" + comp['vulnerabilityWithRemediation'][
+                vuln_url = "/api/vulnerabilities/" + comp['vulnerabilityWithRemediation'][
                     'vulnerabilityName']
                 custom_headers = {'Accept': 'application/vnd.blackducksoftware.vulnerability-4+json'}
-                resp = hub.execute_get(vuln_url, custom_headers=custom_headers)
-                vuln = resp.json()
+                # resp = hub.execute_get(vuln_url, custom_headers=custom_headers)
+                vuln = bd.get_json(vuln_url)
+                # vuln = resp.json()
                 # print(json.dumps(vuln, indent=4))
                 for x in vuln['_meta']['links']:
                     if x['rel'] == 'related-vulnerability':
                         if x['label'] == 'NVD':
                             cve = x['href'].split("/")[-1]
                             if cve in vuln_list:
-                                if patch_vuln(hub, comp):
+                                if patch_vuln(bd, comp):
                                     print("		Patched " + vuln['name'] + ": " + cve)
                                     count += 1
+                        break
 
     except Exception as e:
         print("ERROR: Unable to get components from project via API\n" + str(e))
@@ -731,29 +738,32 @@ def wait_for_bom_completion(bd, ver):
         link = next((item for item in links if item["rel"] == "bom-status"), None)
 
         href = link['href']
-        headers = {'Accept': 'application/vnd.blackducksoftware.internal-1+json'}
+        # headers = {'Accept': 'application/vnd.blackducksoftware.internal-1+json'}
         # resp = hub.execute_get(href, custom_headers=custom_headers)
-        resp = bd.get_json(href, headers=headers)
-
         loop = 0
-        uptodate = resp['upToDate']
+        uptodate = False
         while not uptodate and loop < 80:
-            time.sleep(15)
             # resp = hub.execute_get(href, custom_headers=custom_headers)
-            resp = bd.get_json(href, headers=headers)
-            uptodate = resp['upToDate']
+            resp = bd.get_json(href)
+            if 'status' in resp:
+                uptodate = (resp['status'] == 'UP_TO_DATE')
+            elif 'upToDate' in resp:
+                uptodate = resp['upToDate']
+            else:
+                print('ERROR: Unable to determine bom status')
+                return False
+            if not uptodate:
+                time.sleep(15)
             loop += 1
+
     except Exception as e:
         print("ERROR: {}".format(str(e)))
         return False
 
-    if uptodate:
-        return True
-    else:
-        return False
+    return uptodate
 
 
-def wait_for_scans(bd, ver):
+def wait_for_scans_old(bd, ver):
     links = ver['_meta']['links']
     link = next((item for item in links if item["rel"] == "codelocations"), None)
 
@@ -763,9 +773,11 @@ def wait_for_scans(bd, ver):
     wait = True
     loop = 0
     while wait and loop < 20:
-        custom_headers = {'Accept': 'application/vnd.blackducksoftware.internal-1+json'}
-        resp = bd.execute_get(href, custom_headers=custom_headers)
-        for cl in resp.json()['items']:
+        # custom_headers = {'Accept': 'application/vnd.blackducksoftware.internal-1+json'}
+        # resp = bd.execute_get(href, custom_headers=custom_headers)
+        resp = bd.get_json(href)
+        for cl in resp['items']:
+            print(cl)
             if 'status' in cl:
                 status_list = cl['status']
                 for status in status_list:
@@ -773,7 +785,27 @@ def wait_for_scans(bd, ver):
                         if status['status'] == "COMPLETED":
                             wait = False
         if wait:
-            time.sleep(15)
+            # time.sleep(15)
+            loop += 1
+
+    return not wait
+
+
+def wait_for_scans(bd, ver):
+
+    # try:
+    #     resp = bd.get_json('/api/current-user')
+    #
+    #     user_url = resp['_meta']['href']
+    #     notification_url = f'{user_url}/notifications?filter=notificationType%3AVERSION_BOM_CODE_LOCATION_BOM_COMPUTED&limit=100&offset=0'
+    # resp = bd.get_json
+    # time.sleep(10)
+    wait = True
+    loop = 0
+    while wait and loop < 20:
+
+        if wait:
+            # time.sleep(15)
             loop += 1
 
     return not wait
@@ -1136,7 +1168,7 @@ def main():
     global do_upload
     bd = None
 
-    print("Yocto build manifest import into Black Duck Utility v1b.15")
+    print("Yocto build manifest import into Black Duck Utility v1b.16")
     print("---------------------------------------------------------\n")
 
     if not check_args():
@@ -1178,18 +1210,22 @@ def main():
         if not args.cve_check_only:
             print("Waiting for Black Duck server scan completion before continuing ...")
             # Need to wait for scan to process into queue - sleep 15
-            time.sleep(30)
+            time.sleep(0)
 
         try:
             print("- Reading Black Duck project ...")
             proj, ver = get_projver(bd, args)
+            while ver == None:
+                time.sleep(10)
+                proj, ver = get_projver(bd, args)
+
         except Exception as e:
             print("ERROR: Unable to get project version from API\n" + str(e))
             sys.exit(3)
 
-        if not wait_for_scans(bd, ver):
-            print("ERROR: Unable to determine scan status")
-            sys.exit(3)
+        # if not wait_for_scans(bd, ver):
+        #     print("ERROR: Unable to determine scan status")
+        #     sys.exit(3)
 
         if not wait_for_bom_completion(bd, ver):
             print("ERROR: Unable to determine BOM status")
