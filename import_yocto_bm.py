@@ -1168,7 +1168,7 @@ def main():
     global do_upload
     bd = None
 
-    print("Yocto build manifest import into Black Duck Utility v1b.16")
+    print("Yocto build manifest import into Black Duck Utility v1b.17")
     print("---------------------------------------------------------\n")
 
     if not check_args():

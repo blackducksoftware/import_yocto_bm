@@ -12,6 +12,12 @@ The `import_yocto_bm.py` script is designed to import a Yocto project build mani
 It can be used as an alternative to the standard Yocto scan process for Black Duck provided within Synopsys Detect, and is mainly focussed on identifying the recipes within the built image as opposed to all recipes in the build environment, but provides additional capabilities including checking against the Black Duck KB, replacing recipe specifications and propagating locally patched CVEs to the Black Duck project.
 
 # LATEST UPDATES
+## V1.17 Beta
+- Update to new KB data 
+
+## V1.16 Beta
+- Fixed CVE patch process to use new Client API class
+
 ## V1.15 Beta
 - Changed KB recipe download to use json formatted files
 - Changed --kb_recipe_file to --kb_recipe_dir to support json files
