@@ -67,11 +67,23 @@ def proc_layers_in_recipes():
                     print(ver)
                     if ver.find(':') >= 0:
                         print('found')
-                    if rec in global_values.recipes_dict.keys() and global_values.recipes_dict[rec] == ver:
-                        global_values.recipe_layer_dict[rec] = layer
-                        if layer not in global_values.layers_list:
-                            global_values.layers_list.append(layer)
-
+                    if rec in global_values.recipes_dict.keys():
+                        if global_values.recipes_dict[rec] == ver:
+                            global_values.recipe_layer_dict[rec] = layer
+                            if layer not in global_values.layers_list:
+                                global_values.layers_list.append(layer)
+                        elif ver.find(':') >= 0:
+                            # version does not match exactly
+                            # check for epoch
+                            tempver = ver.split(':')[1]
+                            if global_values.recipes_dict[rec] == tempver:
+                                # version includes epoch:
+                                # update version in dict
+                                global_values.recipes_dict[rec] = ver
+                                global_values.recipe_layer_dict[rec] = layer
+                                if layer not in global_values.layers_list:
+                                    global_values.layers_list.append(layer)
+                                    
                 rec = ""
         elif rline.endswith(": ==="):
             bstart = True
@@ -105,9 +117,9 @@ def proc_recipe_revisions():
                     arr = line.split(":")
                     rev = arr[1].strip()
                     global_values.recipes_dict[recipe] += "-" + rev
+                    break
         else:
-            print("ERROR: Recipeinfo file {} does not exist\n".format(recipeinfo))
-            sys.exit(3)
+            print("WARNING: Recipeinfo file {} does not exist - assuming no revision\n".format(recipeinfo))
 
 
 def proc_layers():

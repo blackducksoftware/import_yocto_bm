@@ -350,7 +350,7 @@ with '{}/{}/{}' from KB".format(comp, arr[0], recipe, ver_norev))
                         origcomp, arr[0], recipe, ver_norev))
                     break
                 elif layer != arr[0] and ver_norev == arr[1]:
-                    # Recipe and version exist in KB - layer is different
+                    # Recipe and version without rev exist in KB - layer is different
                     print("	- REPLACED - Component {}: Recipe and version exist in KB, but not within the layer '{}' - \
 replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver_norev))
                     global_values.recipe_layer_dict[recipe] = arr[0]
