@@ -1141,18 +1141,6 @@ args = parser.parse_args()
 if args.bblayers_out != '':
     args.no_cve_check = True
 
-bdio = []
-bdio_comps_layers = []
-bdio_comps_recipes = []
-packages_list = []
-recipes_dict = {}
-recipe_layer_dict = {}
-layers_list = []
-bdio_proj_rel_list = []
-replace_recipes_dict = {}
-do_upload = True
-licdir = ''
-
 
 def main():
     global args
@@ -1215,7 +1203,7 @@ def main():
         try:
             print("- Reading Black Duck project ...")
             proj, ver = get_projver(bd, args)
-            while ver == None:
+            while ver is None:
                 time.sleep(10)
                 proj, ver = get_projver(bd, args)
 
