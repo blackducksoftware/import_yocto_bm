@@ -1,6 +1,0 @@
-{
-  "baseurl": "https://SERVER",
-  "api_token": "API_TOKEN",
-  "insecure": true,
-  "debug": false
-}

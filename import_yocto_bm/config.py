@@ -50,7 +50,8 @@ parser.add_argument("--bblayers_out",
                     help='''Specify file containing 'bitbake-layers show-recipes' output (do not run command) & bypass
                     checks for revisions in recipe_info files''',
                     default="")
-parser.add_argument("--wizard", help="Start command line wizard", action='store_true')
+parser.add_argument("--wizard", help="Start command line wizard (Wizard will run by default if config incomplete)",
+                    action='store_true')
 parser.add_argument("--nowizard", help="Do not use wizard (command line batch only)", action='store_true')
 
 args = parser.parse_args()
@@ -65,13 +66,13 @@ def check_args():
         wizlist.append('PROJECT')
         wizlist.append('VERSION')
 
-    #  DEBUG
-    # if platform.system() != "Linux":
-    #     print("Please use this program on a Linux platform where Yocto project has been built\nExiting")
-    #     sys.exit(2)
-
     # Check oe-pkgdata-util and bitbake commands are on PATH
     if args.bblayers_out == '':
+        # if platform.system() != "Linux":
+        #     print('''Please use this program on a Linux platform or extract data from a Yocto build then
+        #     use the --bblayers_out option to scan on other platforms\nExiting''')
+        #     sys.exit(2)
+
         if shutil.which("bitbake") is None or shutil.which("bitbake-layers") is None:
             print("WARNING: Yocto environment has probably not been set (no 'bitbake-layers' command)")
             wizlist.append('BBLAYERS_FILE')
@@ -334,14 +335,14 @@ def input_number(prompt):
         sys.exit(2)
 
 
-def input_file(prompt, accept_null):
+def input_file(prompt, accept_null, file_exists):
     if accept_null:
         prompt_help = '(q to quit, Enter to skip)'
     else:
         prompt_help = '(q to quit)'
     print(f'{prompt} {prompt_help}: ', end='')
     val = input()
-    while not os.path.isfile(val) and val.lower() != 'q':
+    while (file_exists and not os.path.isfile(val)) and val.lower() != 'q':
         if accept_null and val == '':
             break
         print(f'WARNING: Invalid input ("{val}" is not a file)')
@@ -407,12 +408,12 @@ def input_filepattern(pattern, filedesc):
             print(f'\t{i}: {f}')
         val = input_number('Please enter file entry number')
         if val == 0:
-            retval = input_file(f'Please enter the {filedesc} file path', False)
+            retval = input_file(f'Please enter the {filedesc} file path', False, True)
         else:
             retval = files_list[val]
     else:
         print(f'WARNING: Unable to find {filedesc} files ...')
-        retval = input_file(f'Please enter the {filedesc} file path', False)
+        retval = input_file(f'Please enter the {filedesc} file path', False, True)
     if not os.path.isfile(retval):
         print(f'ERROR: Unable to locate {filedesc} file - exiting')
         sys.exit(2)
@@ -464,7 +465,7 @@ def do_wizard(wlist):
                 global_values.deploydir = input_folder('Yocto deploy folder (usually poky/build/tmp/deploy)')
         else:
             args.bblayers_out = input_file(
-                'Bitbake layers output file (output of command "bitbake-layers show-recipes")', False)
+                'Bitbake layers output file (output of command "bitbake-layers show-recipes")', False, True)
 
     if args.bblayers_out == '' and ('DEPLOY_DIR' in wlist or global_values.deploydir == ''):
         if global_values.deploydir != '' and os.path.isdir(global_values.deploydir):
@@ -485,7 +486,7 @@ def do_wizard(wlist):
             elif wiz_help[wiz_categories.index(cat)]['vtype'] == 'yesno':
                 val = input_yesno(wiz_help[wiz_categories.index(cat)]['prompt'])
             elif wiz_help[wiz_categories.index(cat)]['vtype'] == 'file':
-                val = input_file(wiz_help[wiz_categories.index(cat)]['prompt'], False)
+                val = input_file(wiz_help[wiz_categories.index(cat)]['prompt'], False, True)
 
             if cat == 'PROJECT':
                 args.project = val
@@ -504,5 +505,9 @@ def do_wizard(wlist):
 
     if cvecheck:
         args.cve_check_file = input_filepattern("**/*.cve", "CVE check output")
+
+    repfile = input_file('Report file name', True, False)
+    if repfile != '':
+        args.report = repfile
 
     return

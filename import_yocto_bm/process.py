@@ -64,9 +64,9 @@ def proc_layers_in_recipes():
                 if len(arr) > 1:
                     layer = arr[0]
                     ver = arr[1]
-                    print(ver)
-                    if ver.find(':') >= 0:
-                        print('found')
+                    # print(ver)
+                    # if ver.find(':') >= 0:
+                    #     print('found')
                     if rec in global_values.recipes_dict.keys():
                         if global_values.recipes_dict[rec] == ver:
                             global_values.recipe_layer_dict[rec] = layer

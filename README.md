@@ -12,6 +12,10 @@ The `import_yocto_bm.py` script is designed to import a Yocto project build mani
 It can be used as an alternative to the standard Yocto scan process for Black Duck provided within Synopsys Detect, and is mainly focussed on identifying the recipes within the built image as opposed to all recipes in the build environment, but provides additional capabilities including checking against the Black Duck KB, replacing recipe specifications and propagating locally patched CVEs to the Black Duck project.
 
 # LATEST UPDATES
+## V2.0 Beta
+- Added new Wizard mode
+- Other fixes to manage component version epochs
+
 ## V1.17 Beta
 - Update to new KB data 
 
@@ -108,8 +112,6 @@ OSS components from OpenEmbedded recipes maintained at layers.openbedded.org sho
 
 1. Black Duck API package must be installed using `pip3 install blackduck`.
 
-1. An API key for the Black Duck server must be configured in the `.restconfig.json` file in the script invocation folder.
-
 1. A supported Yocto environment (version 2.0 to 3.1) must be loaded to the current shell (see [Preconfiguration](#PRECONFIGURATION) section below).
 
 1. The Yocto project must have been pre-built.
@@ -135,7 +137,7 @@ The `import_yocto_bm.py` usage is shown below:
 				[-t TARGET] [-o OUTPUT_JSON] [-m MANIFEST]
 				[-b BUILDCONF] [-l LOCALCONF] [--arch ARCH]
 				[-r repfile] [--cve_check_only] [--no_cve_check]
-				[--cve_check_file CVE_CHECK_FILE] [--report rep.txt]
+				[--cve_check_file CVE_CHECK_FILE] [--report rep.txt] [--nowizard|-wizard]
 
 	Import Yocto build manifest to BD project version
 
@@ -188,7 +190,10 @@ The `import_yocto_bm.py` usage is shown below:
 				containing the output of the command `bitbake-layers show-recipes '*'` instead of 
 				calling the command directly as well as the license.manifest file to be specified 
 				with -m. Also skips identification of recipe revisions (assumes all revisions are -r0)
-
+      --wizard
+                Start command line wizard (Wizard will run by default if config incomplete)
+      --nowizard
+                Do not start command line wizard even if config incomplete (batch mode)
 
 The script will use the invocation folder as the Yocto build folder (e.g. yocto_zeus/poky/build) by default (if there is a `build` sub-folder then it will be used instead). The `--yocto_folder` option can be used to specify the Yocto build folder as opposed to the invocation folder.
 
