@@ -114,7 +114,7 @@ def check_args():
 
     if args.cve_check_file != "" and not os.path.isfile(args.cve_check_file):
         print("WARNING: CVE check output file '{}' does not exist".format(args.cve_check_file))
-        wizlist.append('CVE_CHECK_FILE')
+        wizlist.append('CVE_CHECK')
 
     if args.cve_check_only and args.no_cve_check:
         print("WARNING: Options --cve_check_only and --no_cve_check cannot be specified together")
@@ -150,6 +150,9 @@ def check_args():
 
 
 def connect():
+    if global_values.url == '':
+        return None
+
     bd = Client(
         token=global_values.api,
         base_url=global_values.url,
@@ -449,16 +452,16 @@ def do_wizard(wlist):
         else:
             global_values.offline = False
 
-    if 'MANIFEST_FILE' in wlist or args.manifest == '':
-        if args.manifest != '' and os.path.isdir(args.manifest):
-            pass
-        else:
-            # find manifest files
-            args.manifest = input_filepattern("**/license.manifest", "'license.manifest'")
+    if 'MANIFEST_FILE' in wlist or args.manifest == '' or (args.manifest != '' and not os.path.isdir(args.manifest)):
+        # find manifest files
+        args.manifest = input_filepattern("**/license.manifest", "'license.manifest'")
+
+    if args.cve_check_file == '' and not args.no_cve_check:
+        wlist.append('CVE_CHECK')
 
     if 'BBLAYERS_FILE' in wlist:
         if input_yesno('Yocto environment not configured - Do you want to search for and load the Yocto config?'):
-            global_values.oefile = input_filepattern('**/oe-*', 'OE environment file')
+            global_values.oefile = input_filepattern('**/oe-init*', 'OE environment file')
             args.bblayers_out = ''
             wlist.remove('BBLAYERS_FILE')
             if global_values.deploydir == '':
@@ -504,7 +507,7 @@ def do_wizard(wlist):
                 cvecheck = val
 
     if cvecheck:
-        args.cve_check_file = input_filepattern("**/*.cve", "CVE check output")
+        args.cve_check_file = input_filepattern("**/*.cve", "CVE check output file")
 
     repfile = input_file('Report file name', True, False)
     if repfile != '':

@@ -25,7 +25,7 @@ def main():
         if bd is None:
             wizlist.append('BD_SERVER')
             wizlist.append('BD_API_TOKEN')
-            wizlist.append('BD_TRUST_CERTS')
+            wizlist.append('BD_TRUST_CERT')
 
     if config.args.manifest == "":
         if not config.check_yocto_build_folder():
@@ -44,7 +44,7 @@ def main():
 
     wizlist = wizlist + config.find_files()
 
-    if not config.args.nowizard and (config.args.wizard or len(wizlist) > 0):
+    if not config.args.nowizard and (config.args.wizard or len(wizlist) > 0) and not config.args.cve_check_only:
         config.do_wizard(wizlist)
         if bd is None and global_values.url != '' and not global_values.offline:
             bd = config.connect()
