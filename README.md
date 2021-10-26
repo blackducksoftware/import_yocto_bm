@@ -11,10 +11,13 @@ The `import_yocto_bm.py` script is designed to import a Yocto project build mani
 
 It can be used as an alternative to the standard Yocto scan process for Black Duck provided within Synopsys Detect, and is mainly focussed on identifying the recipes within the built image as opposed to all recipes in the build environment, but provides additional capabilities including checking against the Black Duck KB, replacing recipe specifications and propagating locally patched CVEs to the Black Duck project.
 
+Version 2.0 includes an optional wizard mode to request additional information where it is not provided (use --no_wizard to disable this mode for batch operation).
+
 # LATEST UPDATES
 ## V2.0 Beta
 - Added new Wizard mode
 - Other fixes to manage component version epochs
+- Updated KB data
 
 ## V1.17 Beta
 - Update to new KB data 
@@ -110,8 +113,6 @@ OSS components from OpenEmbedded recipes maintained at layers.openbedded.org sho
 
 1. Python 3 must be installed.
 
-1. Black Duck API package must be installed using `pip3 install blackduck`.
-
 1. A supported Yocto environment (version 2.0 to 3.1) must be loaded to the current shell (see [Preconfiguration](#PRECONFIGURATION) section below).
 
 1. The Yocto project must have been pre-built.
@@ -124,14 +125,15 @@ Then use the Yocto build command (e.g. `bitbake core-image-sato` which will incr
 
 # INSTALLATION
 
-To download the script, change to a chosen location and use Git to download a copy of the project:
+Install using pip - for example:
 
-    git clone https://github.com/matthewb66/import_yocto_bm
-    export YOCTO_BM_LOC=`pwd`/import_yocto_bm
+    pip3 install -i https://test.pypi.org/simple/ import_yocto_bm
 
 # STANDARD USAGE
 
-The `import_yocto_bm.py` usage is shown below:
+Run the command `import_yocto_bm` without arguments to invoke the wizard to guide you through the required information and options.
+
+The `import_yocto_bm` program usage is shown below:
 
 	usage: import_yocto_bm [-h] [-p PROJECT] [-v VERSION] [-y YOCTO_FOLDER]
 				[-t TARGET] [-o OUTPUT_JSON] [-m MANIFEST]
