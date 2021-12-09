@@ -104,7 +104,7 @@ OSS components from OpenEmbedded recipes maintained at layers.openbedded.org sho
 
 1. Must be run on Linux
 
-1. Python 3 must be installed.
+1. Python 3.7 or later must be installed.
 
 1. Black Duck API package must be installed using `pip3 install blackduck`.
 
@@ -124,7 +124,7 @@ Then use the Yocto build command (e.g. `bitbake core-image-sato` which will incr
 
 To download the script, change to a chosen location and use Git to download a copy of the project:
 
-    git clone https://github.com/matthewb66/import_yocto_bm
+    git clone https://github.com/blackducksoftware/import_yocto_bm
     export YOCTO_BM_LOC=`pwd`/import_yocto_bm
 
 # STANDARD USAGE
