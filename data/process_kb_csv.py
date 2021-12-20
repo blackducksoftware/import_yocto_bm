@@ -26,16 +26,17 @@ try:
             layer = carr[0]
             recipe = carr[1]
             version = carr[2]
-            entry_list.append(entry)
-            if recipe in recipe_dict:
-                recipe_dict[recipe].append(f'{layer}/{version}')
-            else:
-                recipe_dict[recipe] = [f'{layer}/{version}']
+            if len(version) > 0:
+                entry_list.append(entry)
+                if recipe in recipe_dict:
+                    recipe_dict[recipe].append(f'{layer}/{version}')
+                else:
+                    recipe_dict[recipe] = [f'{layer}/{version}']
     c.close()
 
-    with open('kb_recipes.json', "w") as f:
+    with open('../kb_recipes.json', "w") as f:
         f.write(json.dumps(recipe_dict, indent=4))
-    with open('kb_entries.json', "w") as f:
+    with open('../kb_entries.json', "w") as f:
         f.write(json.dumps(entry_list, indent=4))
 
 except Exception as e:
