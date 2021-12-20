@@ -90,7 +90,7 @@ Then use the Yocto build command (e.g. `bitbake core-image-sato` which will incr
 
 Install the utility using pip - for example:
 
-    pip3 install -i https://test.pypi.org/simple/ import_yocto_bm
+    pip3 install import_yocto_bm
 
 # STANDARD USAGE
 
