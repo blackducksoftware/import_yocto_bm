@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="import_yocto_bm",
-    version="0.20-4",
+    version="0.21",
     author="Matthew Brady",
     author_email="w3matt@gmail.com",
     description="Process a built Yocto project to create a Black Duck project version",

@@ -335,6 +335,7 @@ def input_number(prompt):
     if val.lower() != 'q':
         return int(val)
     else:
+        print('Terminating')
         sys.exit(2)
 
 
@@ -354,6 +355,7 @@ def input_file(prompt, accept_null, file_exists):
     if val.lower() != 'q' or (accept_null and val == ''):
         return val
     else:
+        print('Terminating')
         sys.exit(2)
 
 
@@ -370,6 +372,7 @@ def input_folder(prompt):
     if val.lower() != 'q':
         return val
     else:
+        print('Terminating')
         sys.exit(2)
 
 
@@ -382,7 +385,20 @@ def input_string(prompt):
     if val.lower() != 'q':
         return val
     else:
+        print('Terminating')
         sys.exit(2)
+
+
+def input_string_default(prompt, default):
+    print(f"{prompt} [Press return for '{default}'] (q to quit): ", end='')
+    val = input()
+    if val.lower() == 'q':
+        sys.exit(2)
+    if len(val) == 0:
+        return default
+    else:
+        print('Terminating')
+        return val
 
 
 def input_yesno(prompt):
@@ -437,8 +453,8 @@ def do_wizard(wlist):
     wiz_help = [
         {'prompt': 'Black Duck project name', 'vtype': 'string'},
         {'prompt': 'Black Duck version name', 'vtype': 'string'},
-        {'prompt': 'Black Duck server URL', 'vtype': 'string'},
-        {'prompt': 'Black Duck API token', 'vtype': 'string'},
+        {'prompt': 'Black Duck server URL', 'vtype': 'string_default', 'default': global_values.url},
+        {'prompt': 'Black Duck API token', 'vtype': 'string_default', 'default': global_values.api},
         {'prompt': 'Trust BD Server certificate', 'vtype': 'yesno'},
         {'prompt': 'Recipe replacefile (used to remap recipes) path', 'vtype': 'file'},
         {'prompt': 'Do you want to run a CVE check to patch CVEs in the BD project which have been patched locally?',
@@ -451,6 +467,7 @@ def do_wizard(wlist):
             global_values.offline = True
         else:
             global_values.offline = False
+            wlist.append('BD_TRUST_CERT')
 
     if 'MANIFEST_FILE' in wlist or args.manifest == '' or (args.manifest != '' and not os.path.isdir(args.manifest)):
         # find manifest files
@@ -486,6 +503,10 @@ def do_wizard(wlist):
             val = ''
             if wiz_help[wiz_categories.index(cat)]['vtype'] == 'string':
                 val = input_string(wiz_help[wiz_categories.index(cat)]['prompt'])
+            elif wiz_help[wiz_categories.index(cat)]['vtype'] == 'string_default':
+                val = input_string_default(wiz_help[wiz_categories.index(cat)]['prompt'],
+                                           wiz_help[wiz_categories.index(cat)]['default'])
+                # val = input_string(wiz_help[wiz_categories.index(cat)]['prompt'])
             elif wiz_help[wiz_categories.index(cat)]['vtype'] == 'yesno':
                 val = input_yesno(wiz_help[wiz_categories.index(cat)]['prompt'])
             elif wiz_help[wiz_categories.index(cat)]['vtype'] == 'file':

@@ -163,27 +163,27 @@ def wait_for_scans_old(bd, ver):
     return not wait
 
 
-def wait_for_scans(bd, ver):
-
-    # try:
-    #     resp = bd.get_json('/api/current-user')
-    #
-    #     user_url = resp['_meta']['href']
-    #     notification_url = f'{user_url}/notifications?filter=notificationType%3A\
-    #     VERSION_BOM_CODE_LOCATION_BOM_COMPUTED&limit=100&offset=0'
-    # resp = bd.get_json
-    # time.sleep(10)
-    wait = True
-    loop = 0
-    while wait and loop < 20:
-
-        if wait:
-            # time.sleep(15)
-            loop += 1
-
-    return not wait
-
-
+# def wait_for_scans(bd, ver):
+#
+#     # try:
+#     #     resp = bd.get_json('/api/current-user')
+#     #
+#     #     user_url = resp['_meta']['href']
+#     #     notification_url = f'{user_url}/notifications?filter=notificationType%3A\
+#     #     VERSION_BOM_CODE_LOCATION_BOM_COMPUTED&limit=100&offset=0'
+#     # resp = bd.get_json
+#     # time.sleep(10)
+#     wait = True
+#     loop = 0
+#     while wait and loop < 20:
+#
+#         if wait:
+#             # time.sleep(15)
+#             loop += 1
+#
+#     return not wait
+#
+#
 def get_kbrecipelist(kbrecdir):
     import requests
 
@@ -315,7 +315,7 @@ def check_recipes(kbrecdir):
         else:
             print('	- SKIPPED  - Component {}/{}: Recipe missing from bitbake-layers output'.format(
                 recipe, global_values.recipes_dict[recipe]))
-            report['SKIPPED'].append(comp)
+            report['SKIPPED'].append(f"Component {comp}: Recipe missing from bitbake-layers output")
             continue
 
         # No exact match found in KB list
@@ -338,7 +338,9 @@ def check_recipes(kbrecdir):
                     print("	- REPLACED - Component {}: Recipe and version exist in KB, but not within the layer '{}' - \
 replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver))
                     global_values.recipe_layer_dict[recipe] = arr[0]
-                    report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(origcomp, arr[0], recipe, ver))
+                    report['REPLACED'].append(
+                        "ORIG={} REPLACEMENT={}/{}/{}: Recipe and version exist in KB, but not within the layer".format(
+                            origcomp, arr[0], recipe, ver))
                     break
                 elif layer == arr[0] and ver_norev == arr[1]:
                     # Layer, Recipe and version without rev exist in KB
@@ -346,8 +348,9 @@ replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver))
 with '{}/{}/{}' from KB".format(comp, arr[0], recipe, ver_norev))
                     global_values.recipe_layer_dict[recipe] = arr[0]
                     global_values.recipes_dict[recipe] = ver_norev
-                    report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
-                        origcomp, arr[0], recipe, ver_norev))
+                    report['REPLACED'].append(
+                        "ORIG={} REPLACEMENT={}/{}/{}: Layer, Recipe and version w/o revision in KB".format(
+                            origcomp, arr[0], recipe, ver_norev))
                     break
                 elif layer != arr[0] and ver_norev == arr[1]:
                     # Recipe and version without rev exist in KB - layer is different
@@ -355,8 +358,9 @@ with '{}/{}/{}' from KB".format(comp, arr[0], recipe, ver_norev))
 replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver_norev))
                     global_values.recipe_layer_dict[recipe] = arr[0]
                     global_values.recipes_dict[recipe] = ver_norev
-                    report['REPLACED'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
-                        origcomp, arr[0], recipe, ver_norev))
+                    report['REPLACED'].append(
+                        "ORIG={} REPLACEMENT={}/{}/{}: Recipe and version exist in KB, but not within the layer".format(
+                            origcomp, arr[0], recipe, ver_norev))
                     break
             else:
                 # Recipe exists in KB but Layer+Version or Version does not
@@ -374,14 +378,16 @@ replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver_no
 revision does not - replaced with '{}/{}/{}' from KB".format(origcomp, kbreclayers[kbrecvers.index(kbver)], recipe,
                                                              kbver))
                                     global_values.recipes_dict[recipe] = kbver
-                                    report['REPLACED_NOREVISION'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
+                                    report['REPLACED_NOREVISION'].append("ORIG={} REPLACEMENT={}/{}/{}: Layer, \
+recipe and version exist in KB, but revision does not".format(
                                         origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
                                 else:
                                     print("	- REPLACED - Component {}: Recipe and version exist in KB, but revision \
 and layer do not - replaced with '{}/{}/{}' from KB".format(comp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
                                     global_values.recipe_layer_dict[recipe] = kbreclayers[kbrecvers.index(kbver)]
                                     global_values.recipes_dict[recipe] = kbver
-                                    report['REPLACED_NOLAYER+REVISION'].append("ORIG={} REPLACEMENT={}/{}/{}".format(
+                                    report['REPLACED_NOLAYER+REVISION'].append("ORIG={} REPLACEMENT={}/{}/{}: Recipe \
+and version exist in KB, but revision and layer do not".format(
                                         origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
                                 break
                     else:
@@ -411,12 +417,14 @@ consider using --repfile with a version replacement (available versions {})".for
             continue
 
         print("	- SKIPPED  - Component {}: missing from KB - will not be mapped in Black Duck project".format(origcomp))
-        report['MISSING'].append(origcomp)
+        report['MISSING'].append(f"Component {origcomp}: missing from KB")
 
     print("	Processed {} recipes from Yocto project ({} mapped, {} not mapped, {} skipped) ...".format(
-        len(global_values.recipes_dict), len(report['OK']) + len(report['REPLACED']) + len(report['REPLACED_NOREVISION']) +
-                                         len(report['REPLACED_NOLAYER+REVISION']), len(report['NOTREPLACED_NOVERSION']) +
-                                         len(report['NOTREPLACED_NOLAYER+VERSION']) + len(report['MISSING']), len(report['SKIPPED']))
+        len(global_values.recipes_dict),
+        len(report['OK']) + len(report['REPLACED']) + len(report['REPLACED_NOREVISION']) +
+        len(report['REPLACED_NOLAYER+REVISION']),
+        len(report['NOTREPLACED_NOVERSION']) + len(report['NOTREPLACED_NOLAYER+VERSION']) + len(report['MISSING']),
+        len(report['SKIPPED']))
     )
     if config.args.report != '':
         try:
