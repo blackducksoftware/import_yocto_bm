@@ -59,8 +59,8 @@ def check_args():
         if not os.path.isdir(args.kb_recipe_dir):
             print("KB data dir '{}' does not exist\nExiting".format(args.kb_recipe_dir))
             return False
-        krfile = os.path.join(args.kb_recipe_dir, 'kb_recipes.json')
-        kefile = os.path.join(args.kb_recipe_dir, 'kb_entries.json')
+        krfile = os.path.join(args.kb_recipe_dir, 'kb_recipes_2109.json')
+        kefile = os.path.join(args.kb_recipe_dir, 'data/kb_entries.json')
 
         if not os.path.isfile(krfile) or not os.path.isfile(kefile):
             print("KB data files do not exist in folder '{}'\nExiting".format(args.kb_recipe_dir))
@@ -845,8 +845,8 @@ def get_kbrecipelist(kbrecdir):
     print("- Checking recipes against Black Duck KB ...")
 
     if kbrecdir != "":
-        krfile = os.path.join(kbrecdir, 'kb_recipes.json')
-        kefile = os.path.join(kbrecdir, 'kb_entries.json')
+        krfile = os.path.join(kbrecdir, 'kb_recipes_2109.json')
+        kefile = os.path.join(kbrecdir, 'data/kb_entries.json')
 
         try:
             with open(krfile) as kr:
@@ -904,12 +904,12 @@ def get_kbrecipelist(kbrecdir):
     #
     # print("	Processed {} recipes from KB".format(len(kbentries)))
     #
-    # with open('kb_recipes.json', "w") as f:
+    # with open('kb_recipes_2109.json', "w") as f:
     #     f.write(json.dumps(kbrecipes, indent=4))
     # with open('kb_entries.json', "w") as f:
     #     f.write(json.dumps(kbentries, indent=4))
 
-    # with open('kb_recipes.json') as kr:
+    # with open('kb_recipes_2109.json') as kr:
     #     kbrecipes = json.load(kr)
     #
     # with open('kb_entries.json') as ke:

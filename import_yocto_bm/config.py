@@ -139,7 +139,7 @@ def check_args():
             print("ERROR: Black Duck KB data dir '{}' does not exist".format(args.kb_recipe_dir))
             sys.exit(2)
         else:
-            krfile = os.path.join(args.kb_recipe_dir, 'kb_recipes.json')
+            krfile = os.path.join(args.kb_recipe_dir, 'kb_recipes_2109.json')
             kefile = os.path.join(args.kb_recipe_dir, 'kb_entries.json')
 
         if not os.path.isfile(krfile) or not os.path.isfile(kefile):

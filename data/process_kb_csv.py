@@ -34,9 +34,9 @@ try:
                     recipe_dict[recipe] = [f'{layer}/{version}']
     c.close()
 
-    with open('../kb_recipes.json', "w") as f:
+    with open('kb_recipes.json', "w") as f:
         f.write(json.dumps(recipe_dict, indent=4))
-    with open('../kb_entries.json', "w") as f:
+    with open('kb_entries.json', "w") as f:
         f.write(json.dumps(entry_list, indent=4))
 
 except Exception as e:
