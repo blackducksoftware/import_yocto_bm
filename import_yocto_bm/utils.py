@@ -274,150 +274,147 @@ def check_recipes(kbrecdir):
     for key in keys:
         report[key] = []
 
-    layer = ''
+    # layer = ''
     comp = ''
     for recipe in global_values.recipes_dict.keys():
         # print(recipe + "/" + recipes[recipe])
         ver = global_values.recipes_dict[recipe]
 
-        if recipe in global_values.recipe_layer_dict.keys():
-            origlayer = global_values.recipe_layer_dict[recipe]
-            layer = origlayer
-            comp = origlayer + "/" + recipe + "/" + global_values.recipes_dict[recipe]
-            origcomp = comp
-
-            # newlayer_string = layer
-            # if recipe in rep_recipes.keys():
-            #     newrecipever_string = rep_recipes[recipe] + "/" + ver
-            # elif recipe + "/" + ver in rep_recipes.keys():
-            #     newrecipever_string = rep_recipes[recipe + "/" + ver]
-            # elif layer + "/" + recipe in rep_recipes.keys():
-            #     newlayer_string = rep_recipes[layer + "/" + recipe].split("/")[0]
-            #     slash = rep_recipes[layer + "/" + recipe].find("/") + 1
-            #     newrecipever_string = rep_recipes[layer + "/" + recipe][slash:]
-            # elif layer + "/" + recipe + "/" + ver in rep_recipes.keys():
-            #     newlayer_string = rep_recipes[layer + "/" + recipe + "/" + ver].split("/")[0]
-            #     slash = rep_recipes[layer + "/" + recipe + "/" + ver].find("/") + 1
-            #     newrecipever_string = rep_recipes[layer + "/" + recipe + "/" + ver][slash:]
-            # else:
-            #     newrecipever_string = recipe + "/" + ver
-            # comp = newlayer_string + "/" + newrecipever_string
-
-            if comp in global_values.replace_recipes_dict.keys():
-                comp = global_values.replace_recipes_dict[comp]
-
-            if comp in kbentries:
-                # Component exists in KB
-                report['OK'].append(comp)
-                print('	- OK       - Component {}/{}: Mapped directly'.format(
-                    recipe, global_values.recipes_dict[recipe]))
-                continue
-        else:
+        if recipe not in global_values.recipe_layer_dict.keys():
             print('	- SKIPPED  - Component {}/{}: Recipe missing from bitbake-layers output'.format(
                 recipe, global_values.recipes_dict[recipe]))
             report['SKIPPED'].append(f"Component {comp}: Recipe missing from bitbake-layers output")
             continue
 
-        # No exact match found in KB list
+        # Recipe exists in layer lookup from bblayers
+        origlayer = global_values.recipe_layer_dict[recipe]
+        layer = origlayer
+        comp = origlayer + "/" + recipe + "/" + global_values.recipes_dict[recipe]
+        origcomp = comp
+
+        if comp in global_values.replace_recipes_dict.keys():
+            # Replace compid with replace value from replacefile
+            comp = global_values.replace_recipes_dict[comp]
+
+        if comp in kbentries:
+            # Exact component exists in KB
+            report['OK'].append(comp)
+            print('	- OK       - Component {}/{}: Mapped directly'.format(
+                recipe, global_values.recipes_dict[recipe]))
+            continue
+
+        # No exact component match found in KB
         val = ver.rfind('-r')
         ver_norev = ''
         if val > 0:
             ver_norev = ver[:val]
 
-        if recipe in kbrecipes.keys():
-            # recipe exists in KB
-            kbrecvers = []
-            kbreclayers = []
-            for kbentry in kbrecipes[recipe]:
-                arr = kbentry.split("/")
-                kbreclayers.append(arr[0])
-                kbrecvers.append(arr[1])
-
-                if layer != arr[0] and ver == arr[1]:
-                    # Recipe and version exist in KB - layer is different
-                    print("	- REPLACED - Component {}: Recipe and version exist in KB, but not within the layer '{}' - \
-replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver))
-                    global_values.recipe_layer_dict[recipe] = arr[0]
-                    report['REPLACED'].append(
-                        "ORIG={} REPLACEMENT={}/{}/{}: Recipe and version exist in KB, but not within the layer".format(
-                            origcomp, arr[0], recipe, ver))
-                    break
-                elif layer == arr[0] and ver_norev == arr[1]:
-                    # Layer, Recipe and version without rev exist in KB
-                    print("	- REPLACED - Component {}: Layer, Recipe and version w/o revision in KB - replaced \
-with '{}/{}/{}' from KB".format(comp, arr[0], recipe, ver_norev))
-                    global_values.recipe_layer_dict[recipe] = arr[0]
-                    global_values.recipes_dict[recipe] = ver_norev
-                    report['REPLACED'].append(
-                        "ORIG={} REPLACEMENT={}/{}/{}: Layer, Recipe and version w/o revision in KB".format(
-                            origcomp, arr[0], recipe, ver_norev))
-                    break
-                elif layer != arr[0] and ver_norev == arr[1]:
-                    # Recipe and version without rev exist in KB - layer is different
-                    print("	- REPLACED - Component {}: Recipe and version exist in KB, but not within the layer '{}' - \
-replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver_norev))
-                    global_values.recipe_layer_dict[recipe] = arr[0]
-                    global_values.recipes_dict[recipe] = ver_norev
-                    report['REPLACED'].append(
-                        "ORIG={} REPLACEMENT={}/{}/{}: Recipe and version exist in KB, but not within the layer".format(
-                            origcomp, arr[0], recipe, ver_norev))
-                    break
-            else:
-                # Recipe exists in KB but Layer+Version or Version does not
-                rev = ver.split("-r")[-1]
-                if len(ver.split("-r")) > 1 and rev.isdigit():
-                    ver_without_rev = ver[0:len(ver) - len(rev) - 2]
-                    for kbver in kbrecvers:
-                        kbrev = kbver.split("-r")[-1]
-                        if len(kbver.split("-r")) > 1 and kbrev.isdigit():
-                            kbver_without_rev = kbver[0:len(kbver) - len(kbrev) - 2]
-                            if ver_without_rev == kbver_without_rev:
-                                # Found KB version with a different revision
-                                if layer == kbreclayers[kbrecvers.index(kbver)]:
-                                    print("	- REPLACED - Component {}: Layer, recipe and version exist in KB, but \
-revision does not - replaced with '{}/{}/{}' from KB".format(origcomp, kbreclayers[kbrecvers.index(kbver)], recipe,
-                                                             kbver))
-                                    global_values.recipes_dict[recipe] = kbver
-                                    report['REPLACED_NOREVISION'].append("ORIG={} REPLACEMENT={}/{}/{}: Layer, \
-recipe and version exist in KB, but revision does not".format(
-                                        origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
-                                else:
-                                    print("	- REPLACED - Component {}: Recipe and version exist in KB, but revision \
-and layer do not - replaced with '{}/{}/{}' from KB".format(comp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
-                                    global_values.recipe_layer_dict[recipe] = kbreclayers[kbrecvers.index(kbver)]
-                                    global_values.recipes_dict[recipe] = kbver
-                                    report['REPLACED_NOLAYER+REVISION'].append("ORIG={} REPLACEMENT={}/{}/{}: Recipe \
-and version exist in KB, but revision and layer do not".format(
-                                        origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
-                                break
-                    else:
-                        if layer == kbreclayers[kbrecvers.index(kbver)]:
-                            # Recipe exists in layer within KB, but version does not
-                            reclist = []
-                            for l, r in zip(kbreclayers, kbrecvers):
-                                if len(l) > 0 and len(r) > 0:
-                                    reclist.append(l + '/' + recipe + '/' + r)
-                            report['NOTREPLACED_NOVERSION'].append(
-                                "ORIG={} Check layers/recipes in KB - Available versions={}".format(origcomp, reclist))
-                            print("	- SKIPPED  - Component {}: Recipe exists in KB within the layer but version does \
-not - consider using --repfile with a version replacement (available versions {})".format(origcomp, reclist))
-                            continue
-                        else:
-                            # Recipe exists within KB, but layer and version do not
-                            reclist = []
-                            for l, r in zip(kbreclayers, kbrecvers):
-                                if len(l) > 0 and len(r) > 0:
-                                    reclist.append(l + '/' + recipe + '/' + r)
-                            print("	- SKIPPED  - Component {}: Recipe exists in KB but layer and version do not - \
-consider using --repfile with a version replacement (available versions {})".format(origcomp, reclist))
-                            report['NOTREPLACED_NOLAYER+VERSION'].append(
-                                "ORIG={} Check layers/recipes in KB - Available versions={}".format(
-                                    origcomp, reclist))
-                            continue
+        if recipe not in kbrecipes.keys():
+            print("	- MISSING  - Component {}: missing from KB - will not be mapped in Black Duck project".format(
+                origcomp))
+            report['MISSING'].append(f"Component {origcomp}: missing from KB")
             continue
 
-        print("	- SKIPPED  - Component {}: missing from KB - will not be mapped in Black Duck project".format(origcomp))
-        report['MISSING'].append(f"Component {origcomp}: missing from KB")
+        # recipe exists in KB - need to find closest match
+        kbrecvers = []
+        kbreclayers = []
+        for kbentry in kbrecipes[recipe]:
+            # Loop through layer/recipe/ver entries in the KB
+            arr = kbentry.split("/")
+            kbreclayers.append(arr[0])
+            kbrecvers.append(arr[1])
+
+            if layer != arr[0] and ver == arr[1]:
+                # Recipe and version exist in KB - layer is different
+                print("	- REPLACED - Component {}: Recipe and version exist in KB, but not within the layer '{}' - \
+replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver))
+                global_values.recipe_layer_dict[recipe] = arr[0]
+                report['REPLACED'].append(
+                    "ORIG={} REPLACEMENT={}/{}/{}: Recipe and version exist in KB, but not within the layer".format(
+                        origcomp, arr[0], recipe, ver))
+                break
+            elif layer == arr[0] and ver_norev == arr[1]:
+                # Layer, Recipe and version without rev exist in KB
+                print("	- REPLACED - Component {}: Layer, Recipe and version w/o revision in KB - replaced \
+with '{}/{}/{}' from KB".format(comp, arr[0], recipe, ver_norev))
+                global_values.recipe_layer_dict[recipe] = arr[0]
+                global_values.recipes_dict[recipe] = ver_norev
+                report['REPLACED'].append(
+                    "ORIG={} REPLACEMENT={}/{}/{}: Layer, Recipe and version w/o revision in KB".format(
+                        origcomp, arr[0], recipe, ver_norev))
+                break
+            elif layer != arr[0] and ver_norev == arr[1]:
+                # Recipe and version without rev exist in KB - layer is different
+                print("	- REPLACED - Component {}: Recipe and version exist in KB, but not within the layer '{}' - \
+replaced with '{}/{}/{}' from KB".format(origcomp, layer, arr[0], recipe, ver_norev))
+                global_values.recipe_layer_dict[recipe] = arr[0]
+                global_values.recipes_dict[recipe] = ver_norev
+                report['REPLACED'].append(
+                    "ORIG={} REPLACEMENT={}/{}/{}: Recipe and version exist in KB, but not within the layer".format(
+                        origcomp, arr[0], recipe, ver_norev))
+                break
+        else:
+            # For loop drop-through
+            # Recipe exists in KB but Layer+Version-rev or Version-rev does not
+            # Need to find close rev match
+            rev = ver.split("-r")[-1]
+            if len(ver.split("-r")) > 1 and rev.isdigit():
+                ver_without_rev = ver[0:len(ver) - len(rev) - 2]
+                for kbver in kbrecvers:
+                    kbrev = kbver.split("-r")[-1]
+                    if len(kbver.split("-r")) > 1 and kbrev.isdigit():
+                        kbver_without_rev = kbver[0:len(kbver) - len(kbrev) - 2]
+                        if ver_without_rev == kbver_without_rev:
+                            # Found KB version with a different revision
+                            if layer == kbreclayers[kbrecvers.index(kbver)]:
+                                print("	- REPLACED - Component {}: Layer, recipe and version exist in KB, but \
+revision does not - replaced with '{}/{}/{}' from KB".format(
+                                    origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
+                                global_values.recipes_dict[recipe] = kbver
+                                report['REPLACED_NOREVISION'].append("ORIG={} REPLACEMENT={}/{}/{}: Layer, \
+recipe and version exist in KB, but revision does not".format(
+                                    origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
+                            else:
+                                print("	- REPLACED - Component {}: Recipe and version exist in KB, but revision \
+and layer do not - replaced with '{}/{}/{}' from KB".format(
+                                    comp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
+                                global_values.recipe_layer_dict[recipe] = kbreclayers[kbrecvers.index(kbver)]
+                                global_values.recipes_dict[recipe] = kbver
+                                report['REPLACED_NOLAYER+REVISION'].append("ORIG={} REPLACEMENT={}/{}/{}: Recipe \
+and version exist in KB, but revision and layer do not".format(
+                                    origcomp, kbreclayers[kbrecvers.index(kbver)], recipe, kbver))
+                            break
+                else:
+                    # for loop drop-through
+                    # Did not find a match
+                    if layer == kbreclayers[kbrecvers.index(kbver)]:
+                        # Recipe exists in layer within KB, but version does not
+                        reclist = []
+                        for l, r in zip(kbreclayers, kbrecvers):
+                            if len(l) > 0 and len(r) > 0:
+                                reclist.append(l + '/' + recipe + '/' + r)
+                        report['NOTREPLACED_NOVERSION'].append(
+                            "ORIG={} Check layers/recipes in KB - Available versions={}".format(origcomp, reclist))
+                        print("	- SKIPPED  - Component {}: Recipe exists in KB within the layer but version does \
+not - consider using --repfile with a version replacement (available versions {})".format(origcomp, reclist))
+                    else:
+                        # Recipe exists within KB, but layer and version do not
+                        reclist = []
+                        for l, r in zip(kbreclayers, kbrecvers):
+                            if len(l) > 0 and len(r) > 0:
+                                reclist.append(l + '/' + recipe + '/' + r)
+                        print("	- SKIPPED  - Component {}: Recipe exists in KB but layer and version do not - \
+consider using --repfile with a version replacement (available versions {})".format(origcomp, reclist))
+                        report['NOTREPLACED_NOLAYER+VERSION'].append(
+                            "ORIG={} Check layers/recipes in KB - Available versions={}".format(
+                                origcomp, reclist))
+                    continue
+            else:
+                # component does not have rev - mark skipped
+                print(
+                    "	- SKIPPED  - Component {}: missing from KB - will not be mapped in Black Duck project".format(
+                        origcomp))
+                report['MISSING'].append(f"Component {origcomp}: missing from KB")
 
     print("	Processed {} recipes from Yocto project ({} mapped, {} not mapped, {} skipped) ...".format(
         len(global_values.recipes_dict),
@@ -432,10 +429,11 @@ consider using --repfile with a version replacement (available versions {})".for
             for key in keys:
                 for rep in report[key]:
                     repfile.write(key + ':' + rep + '\n')
+            repfile.close()
         except Exception as e:
+            print(f'  ERROR: Unable to write report file {config.args.report}')
             return
         finally:
-            repfile.close()
             print(' Report file {} written containing list of mapped layers/recipes.'.format(config.args.report))
 
     return

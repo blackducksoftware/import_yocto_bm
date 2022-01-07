@@ -48,7 +48,6 @@ def proc_layers_in_recipes():
         else:
             output = subprocess.check_output(['bash', '-c', 'source ' + global_values.oefile +
                                               ' && bitbake-layers show-recipes'], stderr=subprocess.STDOUT)
-
         mystr = output.decode("utf-8").strip()
         lines = mystr.splitlines()
 

@@ -13,7 +13,7 @@ if config.args.bblayers_out != '':
 
 
 def main():
-    print("Yocto build manifest import into Black Duck Utility v2.0")
+    print("Yocto build manifest import into Black Duck Utility v2.2")
     print("---------------------------------------------------------\n")
 
     bd = None

@@ -419,20 +419,29 @@ def input_yesno(prompt):
 
 
 def input_filepattern(pattern, filedesc):
-    files_list = glob.glob(pattern, recursive=True)
-    if len(files_list) > 0:
-        print(f'Please select the {filedesc} file to be used: ')
-        files_list = ['None of the below'] + files_list
-        for i, f in enumerate(files_list):
-            print(f'\t{i}: {f}')
-        val = input_number('Please enter file entry number')
-        if val == 0:
-            retval = input_file(f'Please enter the {filedesc} file path', False, True)
+    retval = ''
+    enterfile = False
+    if input_yesno('Do you want to search recursively for the manifest file?'):
+        files_list = glob.glob(pattern, recursive=True)
+        if len(files_list) > 0:
+            print(f'Please select the {filedesc} file to be used: ')
+            files_list = ['None of the below'] + files_list
+            for i, f in enumerate(files_list):
+                print(f'\t{i}: {f}')
+            val = input_number('Please enter file entry number')
+            if val == 0:
+                enterfile = True
+            else:
+                retval = files_list[val]
         else:
-            retval = files_list[val]
+            print(f'WARNING: Unable to find {filedesc} files ...')
+            enterfile = True
     else:
-        print(f'WARNING: Unable to find {filedesc} files ...')
+        enterfile = True
+
+    if enterfile:
         retval = input_file(f'Please enter the {filedesc} file path', False, True)
+
     if not os.path.isfile(retval):
         print(f'ERROR: Unable to locate {filedesc} file - exiting')
         sys.exit(2)
@@ -469,7 +478,7 @@ def do_wizard(wlist):
             global_values.offline = False
             wlist.append('BD_TRUST_CERT')
 
-    if 'MANIFEST_FILE' in wlist or args.manifest == '' or (args.manifest != '' and not os.path.isdir(args.manifest)):
+    if 'MANIFEST_FILE' in wlist or args.manifest == '' or (args.manifest != '' and not os.path.isfile(args.manifest)):
         # find manifest files
         args.manifest = input_filepattern("**/license.manifest", "'license.manifest'")
 
