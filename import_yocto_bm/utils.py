@@ -292,15 +292,25 @@ def check_recipes(kbrecdir):
         comp = origlayer + "/" + recipe + "/" + global_values.recipes_dict[recipe]
         origcomp = comp
 
+        replaced = False
         if comp in global_values.replace_recipes_dict.keys():
             # Replace compid with replace value from replacefile
             comp = global_values.replace_recipes_dict[comp]
+            arr = comp.split('/')
+            layer = arr[0]
+            ver = arr[2]
+            global_values.recipes_dict[recipe] = ver
+            replaced = True
 
         if comp in kbentries:
-            # Exact component exists in KB
-            report['OK'].append(comp)
-            print('	- OK       - Component {}/{}: Mapped directly'.format(
-                recipe, global_values.recipes_dict[recipe]))
+            if replaced:
+                report['REPLACED'].append(origcomp)
+                print(f'	- REPLACED - Component {origcomp}: Replaced by {comp} from replacefile')
+            else:
+                # Exact component exists in KB
+                report['OK'].append(comp)
+                print('	- OK       - Component {}/{}: Mapped directly'.format(
+                    recipe, global_values.recipes_dict[recipe]))
             continue
 
         # No exact component match found in KB

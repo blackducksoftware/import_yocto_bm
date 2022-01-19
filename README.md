@@ -1,4 +1,4 @@
-# Synopsys Import Yocto Build Manifest - import_yocto_bm.py - v2.2
+# Synopsys Import Yocto Build Manifest - import_yocto_bm.py - v2.3
 
 # INTRODUCTION
 This script is provided under an OSS license as an example of how to use the Black Duck APIs to import components from a Yocto project manifest.
@@ -52,7 +52,7 @@ The proposed process to scan a Yocto project using this script is:
 1. Add the `--report rep.txt` option to export a report of the matched recipes. This will include reports categorised as follows:
 
 - OK = recipe matched the Black Duck KB and will be included in the Black Duck project
-- REPLACED = recipe has been moved to a new layer and the script has referenced the original layer in the KB - will be included in the Black Duck project
+- REPLACED = recipe has been moved to a new layer and the script has referenced the original layer in the KB or the recipe was changed using a replacefile entry - will be included in the Black Duck project
 - REPLACED_NOREVISION = the script has replaced the revision to match the KB - will be included in project
 - REPLACED_NOLAYER+REVISION = recipe has been moved to a new layer with a new revision and the script has referenced the original layer and revision in the KB - will be included in the Black Duck project
 - NOTREPLACED_NOVERSION = the layer and recipe exist in the KB but the version does not - will not be included in the Black Duck project
@@ -91,6 +91,10 @@ Then use the Yocto build command (e.g. `bitbake core-image-sato` which will incr
 Install the utility using pip - for example:
 
     pip3 install import_yocto_bm
+
+Alternatively, clone the repository and run directly using:
+
+    python3 import_yocto_bm/main.py
 
 # STANDARD USAGE
 
@@ -224,29 +228,33 @@ To run the utility in wizard mode, simply use the command `import_yocto_bm` and 
 
 Use the option `--nowizard` to run in batch mode and bypass the wizard mode, noting that you will need to specify all required options on the command line correctly.
 
-Use the following command to scan a Yocto build, create Black Duck project `myproject` and version `v1.0`, then update CVE patch status for identified CVEs:
+Use the following command to scan a Yocto build, create Black Duck project `myproject` and version `v1.0`, then update CVE patch status for identified CVEs (will require the OE environment to have been loaded previously):
 
     import_yocto_bm -p myproject -v v1.0
 
-To scan a Yocto project specifying a different build manifest as opposed to the most recent one:
+To scan a Yocto project specifying a different build manifest as opposed to the most recent one (will require the OE environment to have been loaded previously):
 
     import_yocto_bm -p myproject -v v1.0 -m tmp/deploy/licenses/core-image-sato-qemux86-64-20200728105751/package.manifest
 
-To scan the most recent Yocto build in a different build folder location (not the current folder):
+To scan the most recent Yocto build in a different build folder location (not the current folder - will require the OE environment to have been loaded previously):
 
     import_yocto_bm -p myproject -v v1.0 --y $HOME/newyocto/poky/build
 
-To perform a CVE check patch analysis only (to update an existing Black Duck project created previously by the script with patched vulnerabilities) use the command:
+To perform a CVE check patch analysis only (to update an existing Black Duck project created previously by the script with patched vulnerabilities) use the command (will require the OE environment to have been loaded previously):
 
     import_yocto_bm -p myproject -v v1.0 --cve_check_only
 
-To create a JSON output scan without uploading (and no CVE patch update) use:
+To create a JSON output scan without uploading (and no CVE patch update) use (will require the OE environment to have been loaded previously):
 
     import_yocto_bm -p myproject -v v1.0 -o my.jsonld
 
-To create a JSON output scan without uploading (and no CVE patch update) without checking recipes against the KB recipe list downloaded from Github:
+To create a JSON output scan without uploading (and no CVE patch update) without checking recipes against the KB recipe list downloaded from Github (will require the OE environment to have been loaded previously):
 
     import_yocto_bm -p myproject -v v1.0 -o my.jsonld --no_kb_check
+
+If you are unable to load the OE environment prior to running the utility, ensure you have the output of the command `bitbake-layers show-recipes` in a file, and use the option `--bblayers_out OUTPUT_FILE` to specify the file OUTPUT_FILE containing this output, for example:
+
+    import_yocto_bm -p myproject -v v1.0 -m poky/build/tmp/output/license.manifest --bblayers_out bblayers.txt
 
 # CVEs from cve_check Versus Black Duck
 
@@ -261,6 +269,9 @@ The list of CVEs reported by `cve_check` will therefore be considerably larger t
 The identification of the Linux Kernel version from the Bitbake recipes and association with the upstream component in the KB has not been completed yet. Until an automatic identification is possible, the required Linux Kernel component can be added manually to the Black Duck project.
 
 # UPDATE HISTORY
+
+## V2.3
+- Fixed issue with replacefile usage
 
 ## V2.2
 - Various minor fixes
