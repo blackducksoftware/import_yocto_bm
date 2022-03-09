@@ -26,10 +26,19 @@ The resulting project will contain mapped recipes/layers including those used to
 To perform a Yocto scan using Synopsys Detect:
 - Change to the poky folder of a Yocto project
 - Run Synopsys Detect adding the options `--detect.tools=DETECTOR --detect.bitbake.package.names=core-image-sato`  (where `core-image-sato` is the package name).
+- New bitbake options have been added in Synopsys Detect 7.9 including the ability to locate the manifest files and remove build dependencies (--detect.bitbake.dependency.types.excluded=BUILD).
 
 # WHY THIS SCRIPT
 
-This script operates on a built Yocto project, identifying the build manifest containing __only the recipes which are within the built image__ as opposed to the superset of all recipes used to build the distribution (including build tools etc.) produced by Synopsys Detect. This script also optionally supports extracting a list of locally patched CVEs from Bitbake and marking them as patched in the Black Duck project.
+This script provides an alternative to scanning Yocto projects in Synopsys Detect.
+
+It should be considered in the following scenarios:
+- Where many standard OpenEmbedded recipes have been moved to new layers (meaning they will not be matched by Synopsys Detect)
+- Where OpenEmbedded recipe versions or revisions have been modified from the original
+- Where a report is required for custom recipes so they can be scanned independently 
+- The identification of locally patched CVEs is desired
+
+The script operates on a built Yocto project, by identifying the build manifest containing __only the recipes which are within the built image__ as opposed to the superset of all recipes used to build the distribution (including build tools etc.) produced by Synopsys Detect by default. This script also optionally supports extracting a list of locally patched CVEs from Bitbake and marking them as patched in the Black Duck project.
 
 Recipes/layers are checked against the recipes maintained in the Black Duck KB which have been extracted from OpenEmbedded.org and those which match are added to the created Black Duck project.
 
