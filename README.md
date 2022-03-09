@@ -9,9 +9,9 @@ It does not represent any extension of licensed functionality of Synopsys softwa
 
 The `import_yocto_bm.py` script is designed to import a Yocto project build manifest created by Bitbake. It replaces all previous scripts (including https://github.com/matthewb66/import_yocto_build_manifest).
 
-It can be used as an alternative to the standard Yocto scan process for Black Duck provided within Synopsys Detect, and identifies the recipes within the built image as opposed to all recipes in the build environment, but provides additional capabilities including checking recipes against the Black Duck KB, replacing recipe specifications where required and propagating locally patched CVEs to the Black Duck project.
+It can be used as an alternative to the standard Yocto scan process for Black Duck provided within Synopsys Detect, and provides additional capabilities including checking recipes against the Black Duck KB, replacing recipe specifications where required and propagating locally patched CVEs to the Black Duck project.
 
-Version 2.1 includes an optional wizard mode to request additional information where it is not provided (use --nowizard to disable this mode for batch operation).
+Version 2.1 provides an optional wizard mode to request additional information where it is not provided (use --nowizard to disable this mode for batch operation).
 
 # DEFAULT YOCTO SCANNING IN BLACK DUCK
 
