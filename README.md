@@ -13,7 +13,7 @@ It can be used as an alternative to the standard Yocto scan process for Black Du
 
 Version 2.1 provides an optional wizard mode to request additional information where it is not provided (use --nowizard to disable this mode for batch operation).
 
-# DEFAULT YOCTO SCANNING IN BLACK DUCK
+# YOCTO SCANNING IN BLACK DUCK USING SYNOPSYS DETECT
 
 The default Yocto scan process for Black Duck is to determine Bitbake dependencies using Synopsys Detect (see [Synopsys Detect - scanning Yocto](https://community.synopsys.com/s/document-item?bundleId=integrations-detect&topicId=packagemgrs%2Fbitbake.html&_LANG=enus)).
 
