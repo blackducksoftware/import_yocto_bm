@@ -28,7 +28,7 @@ The resulting project will contain mapped recipes/layers including those used to
 To perform a Yocto scan using Synopsys Detect:
 - Change to the poky folder of a Yocto project
 - Run Synopsys Detect adding the options `--detect.tools=DETECTOR --detect.bitbake.package.names=core-image-sato`  (where `core-image-sato` is the package name).
-- New bitbake options have been added in Synopsys Detect 7.9 including the ability to locate the manifest files and remove build dependencies (--detect.bitbake.dependency.types.excluded=BUILD).
+- New bitbake options have been added in Synopsys Detect 7.9 including the ability to locate the manifest files and remove build dependencies ( for example `--detect.bitbake.dependency.types.excluded=BUILD` - see (here)[https://community.synopsys.com/s/document-item?bundleId=integrations-detect&topicId=properties%2Fdetectors%2Fbitbake.html] ).
 
 # WHY THIS SCRIPT
 
