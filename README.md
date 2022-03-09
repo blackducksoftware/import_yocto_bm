@@ -5,6 +5,8 @@ This script is provided under an OSS license as an example of how to use the Bla
 
 It does not represent any extension of licensed functionality of Synopsys software itself and is provided as-is, without warranty or liability.
 
+If you have comments or issues, please raise a GitHub issue here. Synopsys support is not able to respond to support tickets for this OSS utility.
+
 # OVERVIEW
 
 The `import_yocto_bm.py` script is designed to import a Yocto project build manifest created by Bitbake. It replaces all previous scripts (including https://github.com/matthewb66/import_yocto_build_manifest).
