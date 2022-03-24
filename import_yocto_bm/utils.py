@@ -300,12 +300,13 @@ def check_recipes(kbrecdir):
             layer = arr[0]
             ver = arr[2]
             global_values.recipes_dict[recipe] = ver
+            global_values.recipe_layer_dict[recipe] = layer
             replaced = True
 
         if comp in kbentries:
             if replaced:
-                report['REPLACED'].append(origcomp)
-                print(f'	- REPLACED - Component {origcomp}: Replaced by {comp} from replacefile')
+                report['REPLACED'].append(f"{origcomp}: Replaced by {comp} from Replacefile")
+                print(f'	- REPLACED - Component {origcomp}: Replaced by {comp} from Replacefile')
             else:
                 # Exact component exists in KB
                 report['OK'].append(comp)
