@@ -331,15 +331,13 @@ def proc_yocto_project(manfile):
 def process_patched_cves(bd, version, vuln_list):
 
     try:
-        # vulnerable_components_url = hub.get_link(version, "vulnerable-components") + "?limit=9999"
-        headers = {'Accept': 'application/vnd.blackducksoftware.bill-of-materials-6+json'}
-        # response = hub.execute_get(vulnerable_components_url, custom_headers=custom_headers)
-        # vulnerable_bom_components = response.json().get('items', [])
-        resp = bd.get_json(version['_meta']['href'] + '/vulnerable-bom-components?limit=5000', headers=headers)
+        # headers = {'Accept': 'application/vnd.blackducksoftware.bill-of-materials-6+json'}
+        # resp = bd.get_json(version['_meta']['href'] + '/vulnerable-bom-components?limit=5000', headers=headers)
+        items = get_vulns(bd, version)
 
         count = 0
 
-        for comp in resp['items']:
+        for comp in items:
             if comp['vulnerabilityWithRemediation']['source'] == "NVD":
                 if comp['vulnerabilityWithRemediation']['vulnerabilityName'] in vuln_list:
                     if utils.patch_vuln(bd, comp):
@@ -394,3 +392,23 @@ def proc_replacefile():
 
     print("	{} replace entries processed".format(len(global_values.replace_recipes_dict)))
     return True
+
+
+def get_vulns(bd, version):
+    bucket = 1000
+    headers = {'Accept': 'application/vnd.blackducksoftware.bill-of-materials-6+json'}
+    compurl = f"{version['_meta']['href']}/vulnerable-bom-components?limit={bucket}"
+
+    try:
+        resp = bd.get_json(compurl, headers=headers)
+        total = resp['totalCount']
+        alldata = resp['items']
+        offset = bucket
+        while len(alldata) < total:
+            resp = bd.get_json(f"{compurl}&offset={offset}", headers=headers)
+            alldata += resp['items']
+            offset += bucket
+    except Exception as e:
+        print("ERROR: Unable to get components from project via API\n" + str(e))
+        return None
+    return alldata
