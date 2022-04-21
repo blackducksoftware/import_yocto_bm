@@ -1,4 +1,4 @@
-version = '2.5'
+version = '2.6'
 bdio = []
 bdio_comps_layers = []
 bdio_comps_recipes = []

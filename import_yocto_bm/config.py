@@ -451,24 +451,27 @@ def input_filepattern(pattern, filedesc):
 def do_wizard(wlist):
     print('\nRUNNING WIZARD ...\n')
     wiz_categories = [
-        'PROJECT',
-        'VERSION',
         'BD_SERVER',
         'BD_API_TOKEN',
         'BD_TRUST_CERT',
+        'PROJECT',
+        'VERSION',
         'REPLACE_FILE',
         'CVE_CHECK',
     ]
     wiz_help = [
-        {'prompt': 'Black Duck project name', 'vtype': 'string'},
-        {'prompt': 'Black Duck version name', 'vtype': 'string'},
         {'prompt': 'Black Duck server URL', 'vtype': 'string_default', 'default': global_values.url},
         {'prompt': 'Black Duck API token', 'vtype': 'string_default', 'default': global_values.api},
         {'prompt': 'Trust BD Server certificate', 'vtype': 'yesno'},
+        {'prompt': 'Black Duck project name', 'vtype': 'string'},
+        {'prompt': 'Black Duck version name', 'vtype': 'string'},
         {'prompt': 'Recipe replacefile (used to remap recipes) path', 'vtype': 'file'},
         {'prompt': 'Do you want to run a CVE check to patch CVEs in the BD project which have been patched locally?',
          'vtype': 'yesno'},
     ]
+
+    # Remove duplicates from wlist
+    wlist = list(dict.fromkeys(wlist))
 
     if ('BD_SERVER' in wlist or 'BD_API_TOKEN' in wlist) and not global_values.offline:
         if not input_yesno('Do you want to connect to a BD server to upload scan results?'):
