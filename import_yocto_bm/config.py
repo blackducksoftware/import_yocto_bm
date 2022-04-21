@@ -470,9 +470,6 @@ def do_wizard(wlist):
          'vtype': 'yesno'},
     ]
 
-    # Remove duplicates from wlist
-    wlist = list(dict.fromkeys(wlist))
-
     if ('BD_SERVER' in wlist or 'BD_API_TOKEN' in wlist) and not global_values.offline:
         if not input_yesno('Do you want to connect to a BD server to upload scan results?'):
             args.output_json = input_string('Output JSON file name (for manual upload)')
