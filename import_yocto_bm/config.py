@@ -90,7 +90,7 @@ def check_args():
 
         trustcert = os.environ.get('BLACKDUCK_TRUST_CERT')
         if trustcert == 'true' or args.blackduck_trust_cert:
-            global_values.verify = True
+            global_values.verify = False
             
         if global_values.url == '' or global_values.api == '':
             wizlist.append('BD_SERVER')

@@ -66,11 +66,11 @@ def upload_json(bd, filename):
     if filename.endswith('.json') or filename.endswith('.jsonld'):
         headers['Content-Type'] = 'application/ld+json'
         with open(filename, "r") as f:
-            response = requests.post(url, headers=headers, data=f)
+            response = requests.post(url, headers=headers, data=f, verify=global_values.verify)
     elif filename.endswith('.bdio'):
         headers['Content-Type'] = 'application/vnd.blackducksoftware.bdio+zip'
         with open(filename, "rb") as f:
-            response = requests.post(url, headers=headers, data=f)
+            response = requests.post(url, headers=headers, data=f, verify=global_values.verify)
     else:
         raise Exception("Unknown file type")
     if response.status_code == 201:

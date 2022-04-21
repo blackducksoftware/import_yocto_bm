@@ -1,4 +1,4 @@
-version = '2.6'
+version = '2.7'
 bdio = []
 bdio_comps_layers = []
 bdio_comps_recipes = []
@@ -9,7 +9,7 @@ layers_list = []
 bdio_proj_rel_list = []
 replace_recipes_dict = {}
 licdir = ''
-verify = False
+verify = True
 api = ''
 url = ''
 offline = False
