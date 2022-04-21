@@ -395,9 +395,9 @@ def input_string_default(prompt, default):
     if val.lower() == 'q':
         sys.exit(2)
     if len(val) == 0:
+        print('Terminating')
         return default
     else:
-        print('Terminating')
         return val
 
 
@@ -421,7 +421,7 @@ def input_yesno(prompt):
 def input_filepattern(pattern, filedesc):
     retval = ''
     enterfile = False
-    if input_yesno('Do you want to search recursively for the manifest file?'):
+    if input_yesno(f"Do you want to search recursively for '{filedesc}'?"):
         files_list = glob.glob(pattern, recursive=True)
         if len(files_list) > 0:
             print(f'Please select the {filedesc} file to be used: ')
@@ -486,15 +486,16 @@ def do_wizard(wlist):
         wlist.append('CVE_CHECK')
 
     if 'BBLAYERS_FILE' in wlist:
-        if input_yesno('Yocto environment not configured - Do you want to search for and load the Yocto config?'):
-            global_values.oefile = input_filepattern('**/oe-init*', 'OE environment file')
-            args.bblayers_out = ''
-            wlist.remove('BBLAYERS_FILE')
-            if global_values.deploydir == '':
-                global_values.deploydir = input_folder('Yocto deploy folder (usually poky/build/tmp/deploy)')
-        else:
-            args.bblayers_out = input_file(
-                'Bitbake layers output file (output of command "bitbake-layers show-recipes")', False, True)
+        print('Yocto environment not configured ...')
+        # if input_yesno('Yocto environment not configured - Do you want to search for and load the Yocto config?'):
+        global_values.oefile = input_filepattern('**/oe-init*', 'OE environment file')
+        args.bblayers_out = ''
+        wlist.remove('BBLAYERS_FILE')
+        if global_values.deploydir == '':
+            global_values.deploydir = input_folder('Yocto deploy folder (usually poky/build/tmp/deploy)')
+        # else:
+        #     args.bblayers_out = input_file(
+        #         'Bitbake layers output file (output of command "bitbake-layers show-recipes")', False, True)
 
     if args.bblayers_out == '' and ('DEPLOY_DIR' in wlist or global_values.deploydir == ''):
         if global_values.deploydir != '' and os.path.isdir(global_values.deploydir):

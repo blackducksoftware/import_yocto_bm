@@ -76,9 +76,14 @@ def main():
         try:
             print("- Reading Black Duck project ...")
             proj, ver = utils.get_projver(bd, config.args)
+            count = 1
             while ver is None:
                 time.sleep(10)
                 proj, ver = utils.get_projver(bd, config.args)
+                count += 1
+                if count > 20:
+                    print(f"Unable to locate project {proj} and version '{ver}' - terminating")
+                    sys.exit(1)
 
         except Exception as e:
             print("ERROR: Unable to get project version from API\n" + str(e))

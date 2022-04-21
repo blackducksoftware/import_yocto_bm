@@ -16,8 +16,8 @@ def get_projver(bd, pargs):
     projects = bd.get_resource('projects', params=params, items=False)
 
     if projects['totalCount'] == 0:
-        print("ERROR: Project '{}' does not exist".format(pargs.project))
-        sys.exit(2)
+        print("INFO: Project '{}' does not exist yet".format(pargs.project))
+        return None, None
 
     projects = bd.get_resource('projects', params=params)
     for proj in projects:
@@ -25,7 +25,7 @@ def get_projver(bd, pargs):
         for ver in versions:
             if ver['versionName'] == pargs.version:
                 return proj, ver
-    print("ERROR: Version '{}' does not exist in project '{}'".format(pargs.project, pargs.version))
+    print("INFO: Version '{}' does not exist in project '{}' yet".format(pargs.project, pargs.version))
     return None, None
 
 
