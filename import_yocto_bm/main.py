@@ -52,6 +52,10 @@ def main():
                 print(f'ERROR: Unable to connect to BD server {global_values.url}')
                 sys.exit(2)
 
+    if config.args.clone_version:
+        proj, clone_version = utils.get_projver(bd, config.args.project, config.args.clone_version)
+        utils.clone_version(bd, proj, clone_version, config.args.version)
+        
     if not config.args.cve_check_only:
         process.proc_yocto_project(config.args.manifest)
 
@@ -75,11 +79,11 @@ def main():
 
         try:
             print("- Reading Black Duck project ...")
-            proj, ver = utils.get_projver(bd, config.args)
+            proj, ver = utils.get_projver(bd, config.args.project, config.args.version)
             count = 1
             while ver is None:
                 time.sleep(10)
-                proj, ver = utils.get_projver(bd, config.args)
+                proj, ver = utils.get_projver(bd, config.args.project, config.args.version)
                 count += 1
                 if count > 20:
                     print(f"Unable to locate project {proj} and version '{ver}' - terminating")
