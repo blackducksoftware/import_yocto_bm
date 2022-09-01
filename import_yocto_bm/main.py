@@ -53,8 +53,10 @@ def main():
                 sys.exit(2)
 
     if config.args.clone_version:
-        proj, clone_version = utils.get_projver(bd, config.args.project, config.args.clone_version)
-        utils.clone_version(bd, proj, clone_version, config.args.version)
+        proj, version = utils.get_projver(bd, config.args.project, config.args.version)
+        if version is None:
+            proj, clone_version = utils.get_projver(bd, config.args.project, config.args.clone_version)
+            utils.clone_version(bd, proj, clone_version, config.args.version)
         
     if not config.args.cve_check_only:
         process.proc_yocto_project(config.args.manifest)
