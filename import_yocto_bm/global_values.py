@@ -6,6 +6,7 @@ packages_list = []
 recipes_dict = {}
 recipe_layer_dict = {}
 layers_list = []
+layers_info_dict = {}
 bdio_proj_rel_list = []
 replace_recipes_dict = {}
 remediation_rules = {}

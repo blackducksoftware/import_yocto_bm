@@ -6,6 +6,8 @@ import subprocess
 import sys
 import uuid
 
+import git
+
 from import_yocto_bm import config, global_values, utils
 
 
@@ -16,6 +18,9 @@ def get_package_reference(pkgvuln):
         package_version = pkgvuln['version']
         reference = f"{package_name}_{package_version}"
 
+        layer_name = global_values.recipe_layer_dict[package_name]
+        layer_reference = global_values.layers_info_dict[layer_name]["reference"]
+        reference += f" >> {layer_reference}"
     except Exception as e:
         #print("ERROR: Failed to build component reference information: " + str(e))
         pass
@@ -71,6 +76,36 @@ def proc_license_manifest(liclines):
     return True
 
 
+def proc_layers_information():
+    print("- Identifying layers information ...")
+    if global_values.oefile == '':
+        output = subprocess.check_output(['bitbake-layers', 'show-layers'], stderr=subprocess.STDOUT)
+    else:
+        output = subprocess.check_output(['bash', '-c', 'source ' + global_values.oefile +
+                                            ' && bitbake-layers show-layers'], stderr=subprocess.STDOUT)
+    # Sometimes bitbake server fails to reconnect
+    bb_lock_path = os.path.join(config.args.yocto_build_folder, "bitbake.lock")
+    subprocess.run(["rm", "-f", bb_lock_path])
+
+    striped_output = output.decode("utf-8").strip()
+    layer_info_list = re.findall(r'([\w-]+)\s+([\w/-]+)\s+(\d+)', striped_output, re.X | re.M)
+    for layer_info in layer_info_list:
+        if len(layer_info) != 3:
+            raise Exception("ERROR: failed to parse layer information")
+
+        layer_name = layer_info[0]
+        layer_path = layer_info[1]
+        layer_priority = layer_info[2]
+        g = git.cmd.Git(layer_path)
+        layer_remote_url = g.execute(['git', 'config', '--get', 'remote.origin.url'])
+        layer_commit = g.execute(['git', 'rev-parse', 'HEAD'])
+        layer_git_reference = f"{layer_remote_url}@{layer_commit}"
+
+        global_values.layers_info_dict[layer_name] = {"path": layer_path,
+                                                      "priority": layer_priority,
+                                                      "reference": layer_git_reference}
+
+
 def proc_layers_in_recipes():
     if config.args.bblayers_out != '':
         if not os.path.isfile(config.args.bblayers_out):
@@ -120,7 +155,7 @@ def proc_layers_in_recipes():
                                 global_values.recipe_layer_dict[rec] = layer
                                 if layer not in global_values.layers_list:
                                     global_values.layers_list.append(layer)
-                                    
+
                 rec = ""
         elif rline.endswith(": ==="):
             bstart = True
@@ -306,6 +341,7 @@ def proc_yocto_project(manfile):
     print("\nProcessing Bitbake project:")
     if not proc_license_manifest(liclines):
         sys.exit(3)
+    proc_layers_information()
     proc_layers_in_recipes()
     proc_recipe_revisions()
     if not config.args.no_kb_check:
