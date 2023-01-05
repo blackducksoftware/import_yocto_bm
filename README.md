@@ -174,6 +174,8 @@ The `import_yocto_bm` parameters for command line usage are shown below:
                 Start command line wizard (Wizard will run by default if config incomplete)
       --nowizard
                 Do not start command line wizard even if config incomplete (batch mode)
+      --remediation_file
+                Load file containing custom remediation rules
 
 The script will use the invocation folder as the Yocto build folder (e.g. yocto_zeus/poky/build) by default (if there is a `build` sub-folder then it will be used instead). The `--yocto_folder` option can be used to specify the Yocto build folder as opposed to the invocation folder.
 
@@ -230,6 +232,21 @@ Example REPFILE content is shown below:
 	RECIPE meta-customlayer/alsa-lib/1.2.1.2-r5 meta/alsa-lib/1.2.1.2-r0
 
 which will remap recipe and version `alsa-lib/1.2.1.2-r5` in the `meta-customlayer` to `meta/alsa-lib/1.2.1.2-r0` in teh Black Duck KB.
+
+# CUSTOM REMEDIATION RULES
+
+Some CVEs are listed by Black Duck but does not applied and would require a manual remediation.
+For instance a CVE concerning the Bluetooth stack in the Linux kernel but does not apply because the config is not set.
+
+To automate the remediation of specific CVEs, you can provide remediation rules in a CSV file.
+
+To reference a custom remediation file, you can use the `--remediation_file REMEDIATIONFILE` option to load a CSV file containing remediation rules.
+
+The remediation file must contains lines with  ```<CVE ID>, <REMEDIATION STATUS>, <COMMENT>```.
+Example: ```CVE-2022-45934,IGNORED,linux: CONFIG_BT is not set```
+
+The valid remediation status are: `IGNORED`, `MITIGATED`, `PATCHED`, `REMEDIATION_COMPLETE`.
+The comment is used as remediation message.
 
 # EXAMPLE USAGE
 

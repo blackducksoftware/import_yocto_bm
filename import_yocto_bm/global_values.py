@@ -8,6 +8,7 @@ recipe_layer_dict = {}
 layers_list = []
 bdio_proj_rel_list = []
 replace_recipes_dict = {}
+remediation_rules = {}
 licdir = ''
 verify = True
 api = ''

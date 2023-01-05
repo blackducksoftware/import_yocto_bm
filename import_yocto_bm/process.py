@@ -1,13 +1,51 @@
-import os
-import uuid
+import csv
 import datetime
-import sys
+import os
 import re
 import subprocess
+import sys
+import uuid
 
-from import_yocto_bm import global_values
-from import_yocto_bm import utils
-from import_yocto_bm import config
+from import_yocto_bm import config, global_values, utils
+
+
+def get_package_reference(pkgvuln):
+    reference = ""
+    try:
+        package_name = pkgvuln['package']
+        package_version = pkgvuln['version']
+        reference = f"{package_name}_{package_version}"
+
+    except Exception as e:
+        #print("ERROR: Failed to build component reference information: " + str(e))
+        pass
+
+    return reference
+
+
+def proc_vuln(pkgvuln):
+    if pkgvuln['CVE'] in global_values.remediation_rules.keys():
+        remediation_rule = global_values.remediation_rules[pkgvuln['CVE']]
+        pkgvuln['status'] = remediation_rule['status']
+        pkgvuln['comment'] = remediation_rule['comment']
+    else:
+        status_lut = {"Patched": "PATCHED",
+                      "Whitelisted": "REMEDIATION_COMPLETE"}
+        comment_lut = {"Patched": "Patched by bitbake recipe: ",
+                       "Whitelisted": "Marked as whitelisted by bitbake recipe: "}
+        pkgvuln['comment'] = comment_lut.get(pkgvuln['status'], None)
+        if pkgvuln['comment']:
+            pkgvuln['comment'] += get_package_reference(pkgvuln)
+        pkgvuln['status'] = status_lut.get(pkgvuln['status'], None)
+
+    if pkgvuln['status']:
+        pkgvuln['status'] = pkgvuln['status'].upper()
+
+    # Filter remediation if status is not one of those
+    if pkgvuln['status'] not in ["IGNORED", "MITIGATED", "PATCHED", "REMEDIATION_COMPLETE"]:
+        return None
+
+    return pkgvuln
 
 
 def proc_license_manifest(liclines):
@@ -328,26 +366,23 @@ def proc_yocto_project(manfile):
         sys.exit(3)
 
 
-def process_patched_cves(bd, version, vuln_list):
+def process_remediated_cves(bd, version, remediated_vulns):
 
+    vuln_list = remediated_vulns.keys()
     try:
         # headers = {'Accept': 'application/vnd.blackducksoftware.bill-of-materials-6+json'}
         # resp = bd.get_json(version['_meta']['href'] + '/vulnerable-bom-components?limit=5000', headers=headers)
         items = get_vulns(bd, version)
 
         count = 0
-
         for comp in items:
+            vuln_name = comp['vulnerabilityWithRemediation']['vulnerabilityName']
             if comp['vulnerabilityWithRemediation']['source'] == "NVD":
-                if comp['vulnerabilityWithRemediation']['vulnerabilityName'] in vuln_list:
-                    if utils.patch_vuln(bd, comp):
-                        print("		Patched {}".format(comp['vulnerabilityWithRemediation']['vulnerabilityName']))
+                if vuln_name in vuln_list:
+                    if utils.remediate_vuln(bd, vuln_name, comp, remediated_vulns[vuln_name]):
                         count += 1
             elif comp['vulnerabilityWithRemediation']['source'] == "BDSA":
-                vuln_url = "/api/vulnerabilities/" + comp['vulnerabilityWithRemediation'][
-                    'vulnerabilityName']
-                # custom_headers = {'Accept': 'application/vnd.blackducksoftware.vulnerability-4+json'}
-                # resp = hub.execute_get(vuln_url, custom_headers=custom_headers)
+                vuln_url = f"/api/vulnerabilities/{vuln_name}"
                 vuln = bd.get_json(vuln_url)
                 # vuln = resp.json()
                 # print(json.dumps(vuln, indent=4))
@@ -356,17 +391,33 @@ def process_patched_cves(bd, version, vuln_list):
                         if x['label'] == 'NVD':
                             cve = x['href'].split("/")[-1]
                             if cve in vuln_list:
-                                if utils.patch_vuln(bd, comp):
-                                    print("		Patched " + vuln['name'] + ": " + cve)
+                                vuln_name = f"{vuln_name} ({cve})"
+                                if utils.remediate_vuln(bd, vuln_name, comp, remediated_vulns[cve]):
                                     count += 1
                         break
 
     except Exception as e:
-        print("ERROR: Unable to get components from project via API\n" + str(e))
+        print("ERROR: Unable to get components from project via API, error=" + str(e))
         return False
 
     print("- {} CVEs marked as patched in project '{}/{}'".format(count, config.args.project, config.args.version))
     return True
+
+
+def proc_load_remediation_rules(remediation_files):
+    for remediation_file in remediation_files:
+        print(f"- Load remediation file: {remediation_file}")
+        try:
+            with open(remediation_file, 'r') as csvfile:
+                csvreader = csv.reader(csvfile, delimiter=',', quotechar='|')
+                for row in csvreader:
+                    vuln_id = row[0]
+                    status = row[1]
+                    comment = row[2] if len(row) >= 3 else ""
+                    global_values.remediation_rules[vuln_id] = {"status": status,
+                                                                "comment": comment}
+        except Exception as e:
+            print(f"ERROR Failed to parse remediation file {remediation_file}: " + str(e))
 
 
 def proc_replacefile():
