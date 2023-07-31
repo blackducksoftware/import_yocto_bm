@@ -1,6 +1,6 @@
 import setuptools
 import platform
-from import_yocto_bm import global_values
+from bd_scan_yocto import global_values
 
 platform_system = platform.system()
 
@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="import_yocto_bm",
+    name="bd_scan_yocto",
     version=f"{global_values.version}",
     author="Matthew Brady",
     author_email="w3matt@gmail.com",
@@ -27,6 +27,6 @@ setuptools.setup(
     ],
     python_requires='>=3.0',
     entry_points={
-        'console_scripts': ['import_yocto_bm=import_yocto_bm.main:main'],
+        'console_scripts': ['bd_scan_yocto=bd_scan_yocto.main:main'],
     },
 )

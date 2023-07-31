@@ -1,4 +1,4 @@
-from import_yocto_bm import main
+from bd_scan_yocto import main
 
 if __name__ == "__main__":
     main.main()
