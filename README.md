@@ -1,4 +1,4 @@
-# Synopsys Import Yocto Build Manifest - import_yocto_bm.py - v2.7
+# Synopsys Import Yocto Build Manifest - import_yocto_bm.py - v2.8
 
 # INTRODUCTION
 This script is provided under an OSS license as an example of how to use the Black Duck APIs to import components from a Yocto project manifest.
@@ -280,6 +280,9 @@ The list of CVEs reported by `cve_check` will therefore be considerably larger t
 The identification of the Linux Kernel version from the Bitbake recipes and association with the upstream component in the KB has not been completed yet. Until an automatic identification is possible, the required Linux Kernel component can be added manually to the Black Duck project.
 
 # UPDATE HISTORY
+
+## V2.8
+- Updated kb data & fixed bug refering to old file
 
 ## V2.7
 - Fixed issue with trustcert option usage

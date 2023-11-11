@@ -190,7 +190,7 @@ def get_kbrecipelist(kbrecdir):
     print("- Checking recipes against Black Duck KB ...")
 
     if kbrecdir != "":
-        krfile = os.path.join(kbrecdir, 'kb_recipes_2109.json')
+        krfile = os.path.join(kbrecdir, 'kb_recipes.json')
         kefile = os.path.join(kbrecdir, 'kb_entries.json')
 
         try:
