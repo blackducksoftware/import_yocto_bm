@@ -1,13 +1,56 @@
-import os
-import uuid
+import csv
 import datetime
-import sys
+import os
 import re
 import subprocess
+import sys
+import uuid
 
-from import_yocto_bm import global_values
-from import_yocto_bm import utils
-from import_yocto_bm import config
+import git
+
+from import_yocto_bm import config, global_values, utils
+
+
+def get_package_reference(pkgvuln):
+    reference = ""
+    try:
+        package_name = pkgvuln['package']
+        package_version = pkgvuln['version']
+        reference = f"{package_name}_{package_version}"
+
+        layer_name = global_values.recipe_layer_dict[package_name]
+        layer_reference = global_values.layers_info_dict[layer_name]["reference"]
+        reference += f" >> {layer_reference}"
+    except Exception as e:
+        #print("ERROR: Failed to build component reference information: " + str(e))
+        pass
+
+    return reference
+
+
+def proc_vuln(pkgvuln):
+    if pkgvuln['CVE'] in global_values.remediation_rules.keys():
+        remediation_rule = global_values.remediation_rules[pkgvuln['CVE']]
+        pkgvuln['status'] = remediation_rule['status']
+        pkgvuln['comment'] = remediation_rule['comment']
+    else:
+        status_lut = {"Patched": "PATCHED",
+                      "Whitelisted": "REMEDIATION_COMPLETE"}
+        comment_lut = {"Patched": "Patched by bitbake recipe: ",
+                       "Whitelisted": "Marked as whitelisted by bitbake recipe: "}
+        pkgvuln['comment'] = comment_lut.get(pkgvuln['status'], None)
+        if pkgvuln['comment']:
+            pkgvuln['comment'] += get_package_reference(pkgvuln)
+        pkgvuln['status'] = status_lut.get(pkgvuln['status'], None)
+
+    if pkgvuln['status']:
+        pkgvuln['status'] = pkgvuln['status'].upper()
+
+    # Filter remediation if status is not one of those
+    if pkgvuln['status'] not in ["IGNORED", "MITIGATED", "PATCHED", "REMEDIATION_COMPLETE"]:
+        return None
+
+    return pkgvuln
 
 
 def proc_license_manifest(liclines):
@@ -31,6 +74,36 @@ def proc_license_manifest(liclines):
         return False
     print("	Identified {} recipes from {} packages".format(len(global_values.recipes_dict), entries))
     return True
+
+
+def proc_layers_information():
+    print("- Identifying layers information ...")
+    if global_values.oefile == '':
+        output = subprocess.check_output(['bitbake-layers', 'show-layers'], stderr=subprocess.STDOUT)
+    else:
+        output = subprocess.check_output(['bash', '-c', 'source ' + global_values.oefile +
+                                            ' && bitbake-layers show-layers'], stderr=subprocess.STDOUT)
+    # Sometimes bitbake server fails to reconnect
+    bb_lock_path = os.path.join(config.args.yocto_build_folder, "bitbake.lock")
+    subprocess.run(["rm", "-f", bb_lock_path])
+
+    striped_output = output.decode("utf-8").strip()
+    layer_info_list = re.findall(r'([\w-]+)\s+([\w/-]+)\s+(\d+)', striped_output, re.X | re.M)
+    for layer_info in layer_info_list:
+        if len(layer_info) != 3:
+            raise Exception("ERROR: failed to parse layer information")
+
+        layer_name = layer_info[0]
+        layer_path = layer_info[1]
+        layer_priority = layer_info[2]
+        g = git.cmd.Git(layer_path)
+        layer_remote_url = g.execute(['git', 'config', '--get', 'remote.origin.url'])
+        layer_commit = g.execute(['git', 'rev-parse', 'HEAD'])
+        layer_git_reference = f"{layer_remote_url}@{layer_commit}"
+
+        global_values.layers_info_dict[layer_name] = {"path": layer_path,
+                                                      "priority": layer_priority,
+                                                      "reference": layer_git_reference}
 
 
 def proc_layers_in_recipes():
@@ -82,7 +155,7 @@ def proc_layers_in_recipes():
                                 global_values.recipe_layer_dict[rec] = layer
                                 if layer not in global_values.layers_list:
                                     global_values.layers_list.append(layer)
-                                    
+
                 rec = ""
         elif rline.endswith(": ==="):
             bstart = True
@@ -268,6 +341,7 @@ def proc_yocto_project(manfile):
     print("\nProcessing Bitbake project:")
     if not proc_license_manifest(liclines):
         sys.exit(3)
+    proc_layers_information()
     proc_layers_in_recipes()
     proc_recipe_revisions()
     if not config.args.no_kb_check:
@@ -328,26 +402,23 @@ def proc_yocto_project(manfile):
         sys.exit(3)
 
 
-def process_patched_cves(bd, version, vuln_list):
+def process_remediated_cves(bd, version, remediated_vulns):
 
+    vuln_list = remediated_vulns.keys()
     try:
         # headers = {'Accept': 'application/vnd.blackducksoftware.bill-of-materials-6+json'}
         # resp = bd.get_json(version['_meta']['href'] + '/vulnerable-bom-components?limit=5000', headers=headers)
         items = get_vulns(bd, version)
 
         count = 0
-
         for comp in items:
+            vuln_name = comp['vulnerabilityWithRemediation']['vulnerabilityName']
             if comp['vulnerabilityWithRemediation']['source'] == "NVD":
-                if comp['vulnerabilityWithRemediation']['vulnerabilityName'] in vuln_list:
-                    if utils.patch_vuln(bd, comp):
-                        print("		Patched {}".format(comp['vulnerabilityWithRemediation']['vulnerabilityName']))
+                if vuln_name in vuln_list:
+                    if utils.remediate_vuln(bd, vuln_name, comp, remediated_vulns[vuln_name]):
                         count += 1
             elif comp['vulnerabilityWithRemediation']['source'] == "BDSA":
-                vuln_url = "/api/vulnerabilities/" + comp['vulnerabilityWithRemediation'][
-                    'vulnerabilityName']
-                # custom_headers = {'Accept': 'application/vnd.blackducksoftware.vulnerability-4+json'}
-                # resp = hub.execute_get(vuln_url, custom_headers=custom_headers)
+                vuln_url = f"/api/vulnerabilities/{vuln_name}"
                 vuln = bd.get_json(vuln_url)
                 # vuln = resp.json()
                 # print(json.dumps(vuln, indent=4))
@@ -356,17 +427,33 @@ def process_patched_cves(bd, version, vuln_list):
                         if x['label'] == 'NVD':
                             cve = x['href'].split("/")[-1]
                             if cve in vuln_list:
-                                if utils.patch_vuln(bd, comp):
-                                    print("		Patched " + vuln['name'] + ": " + cve)
+                                vuln_name = f"{vuln_name} ({cve})"
+                                if utils.remediate_vuln(bd, vuln_name, comp, remediated_vulns[cve]):
                                     count += 1
                         break
 
     except Exception as e:
-        print("ERROR: Unable to get components from project via API\n" + str(e))
+        print("ERROR: Unable to get components from project via API, error=" + str(e))
         return False
 
     print("- {} CVEs marked as patched in project '{}/{}'".format(count, config.args.project, config.args.version))
     return True
+
+
+def proc_load_remediation_rules(remediation_files):
+    for remediation_file in remediation_files:
+        print(f"- Load remediation file: {remediation_file}")
+        try:
+            with open(remediation_file, 'r') as csvfile:
+                csvreader = csv.reader(csvfile, delimiter=',', quotechar='|')
+                for row in csvreader:
+                    vuln_id = row[0]
+                    status = row[1]
+                    comment = row[2] if len(row) >= 3 else ""
+                    global_values.remediation_rules[vuln_id] = {"status": status,
+                                                                "comment": comment}
+        except Exception as e:
+            print(f"ERROR Failed to parse remediation file {remediation_file}: " + str(e))
 
 
 def proc_replacefile():
