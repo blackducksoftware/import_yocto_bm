@@ -25,7 +25,7 @@ def get_projver(bd, pargs):
         for ver in versions:
             if ver['versionName'] == pargs.version:
                 return proj, ver
-    print("INFO: Version '{}' does not exist in project '{}' yet".format(pargs.project, pargs.version))
+    print("INFO: Version '{}' does not exist in project '{}' yet".format(pargs.version, pargs.project))
     return None, None
 
 
