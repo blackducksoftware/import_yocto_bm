@@ -1,5 +1,10 @@
 # Synopsys Import Yocto Build Manifest - import_yocto_bm.py - v2.8
 
+# DEPRECATION NOTICE
+
+This script will be deprecated soon in preference for a new utility designed to address several limitations in this version.
+Please see [bd_scan_yocto](https://github.com/matthewb66/bd_scan_yocto) for the latest beta script for Yocto scanning.
+
 # INTRODUCTION
 This script is provided under an OSS license as an example of how to use the Black Duck APIs to import components from a Yocto project manifest.
 
