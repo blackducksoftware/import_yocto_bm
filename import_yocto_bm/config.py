@@ -272,8 +272,8 @@ def find_files():
         global_values.deploydir = os.path.expandvars(deploydir)
     else:
         global_values.deploydir = os.path.join(args.yocto_build_folder, "tmp", "deploy")
-    if not os.path.isdir(deploydir):
-        print("WARNING: DEPLOYDIR does not exist {}\n".format(deploydir))
+    if not os.path.isdir(global_values.deploydir):
+        print("WARNING: DEPLOYDIR does not exist {}\n".format(global_values.deploydir))
         wizlist.append('MANIFEST_FILE')
         wizlist.append('DEPLOY_DIR')
         return wizlist
