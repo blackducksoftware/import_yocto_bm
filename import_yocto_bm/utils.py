@@ -79,15 +79,12 @@ def upload_json(bd, filename):
         return False
 
 
-def patch_vuln(bd, comp):
-    status = "PATCHED"
-    comment = "Patched by bitbake recipe"
+def remediate_vuln(bd, vul_name, comp, pkgvuln):
 
     try:
-        # vuln_name = comp['vulnerabilityWithRemediation']['vulnerabilityName']
-
-        comp['remediationStatus'] = status
-        comp['remediationComment'] = comment
+        print(f"        REMEDIATION: {vul_name}: {pkgvuln['package']}-{pkgvuln['version']} >> {pkgvuln['status']} ({pkgvuln['comment']})")
+        comp['remediationStatus'] = pkgvuln['status']
+        comp['comment'] = pkgvuln['comment']
         # result = hub.execute_put(comp['_meta']['href'], data=comp)
         href = comp['_meta']['href']
         # href = '/'.join(href.split('/')[3:])

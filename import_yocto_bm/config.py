@@ -1,10 +1,11 @@
-import os
 import argparse
+import glob
+import os
 import shutil
 import sys
-import glob
 
 from blackduck import Client
+
 from import_yocto_bm import global_values
 
 parser = argparse.ArgumentParser(description='Import Yocto build manifest to BD project version',
@@ -53,6 +54,8 @@ parser.add_argument("--bblayers_out",
 parser.add_argument("--wizard", help="Start command line wizard (Wizard will run by default if config incomplete)",
                     action='store_true')
 parser.add_argument("--nowizard", help="Do not use wizard (command line batch only)", action='store_true')
+parser.add_argument("--remediation_file", help="File containing custom remediation rules", action='append',
+                    default=[])
 
 args = parser.parse_args()
 
@@ -91,7 +94,7 @@ def check_args():
         trustcert = os.environ.get('BLACKDUCK_TRUST_CERT')
         if trustcert == 'true' or args.blackduck_trust_cert:
             global_values.verify = False
-            
+
         if global_values.url == '' or global_values.api == '':
             wizlist.append('BD_SERVER')
             wizlist.append('BD_API_TOKEN')

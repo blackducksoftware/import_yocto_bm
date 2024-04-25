@@ -1,5 +1,7 @@
-import setuptools
 import platform
+
+import setuptools
+
 from import_yocto_bm import global_values
 
 platform_system = platform.system()
@@ -18,6 +20,7 @@ setuptools.setup(
     url="https://github.com/blackducksoftware/import_yocto_bm",
     packages=setuptools.find_packages(),
     install_requires=['blackduck>=1.0.4',
+                      'GitPython',
                       'requests',
                       ],
     classifiers=[
