@@ -8,24 +8,24 @@ from import_yocto_bm import global_values
 from import_yocto_bm import config
 
 
-def get_projver(bd, pargs):
+def get_projver(bd, project , version):
     params = {
-        'q': "name:" + pargs.project,
+        'q': "name:" + project,
         'sort': 'name',
     }
     projects = bd.get_resource('projects', params=params, items=False)
 
     if projects['totalCount'] == 0:
-        print("INFO: Project '{}' does not exist yet".format(pargs.project))
+        print("INFO: Project '{}' does not exist yet".format(project))
         return None, None
 
     projects = bd.get_resource('projects', params=params)
     for proj in projects:
         versions = bd.get_resource('versions', parent=proj, params=params)
         for ver in versions:
-            if ver['versionName'] == pargs.version:
+            if ver['versionName'] == version:
                 return proj, ver
-    print("INFO: Version '{}' does not exist in project '{}' yet".format(pargs.project, pargs.version))
+    print("INFO: Version '{}' does not exist in project '{}' yet".format(project, version))
     return None, None
 
 
@@ -78,6 +78,31 @@ def upload_json(bd, filename):
     else:
         return False
 
+def clone_version(bd, project, clone_version , version):
+
+    url = project['_meta']['href'] + "/versions"
+
+    version_config = {
+        "versionUrl": url,
+        "cloneCategories": [
+            "VULN_DATA",
+            "COMPONENT_DATA"
+        ],
+        "versionName": version,
+        "phase": "DEVELOPMENT", # Default
+        "distribution":clone_version['distribution'],
+        "cloneFromReleaseUrl": clone_version['_meta']['href']
+    }
+    r = bd.session.post(url, json=version_config)
+        
+    r.raise_for_status()
+
+    if r.status_code == 412:
+        print("ERROR: Access to target denied. New version is already Exists.\n")
+        return False
+    if r.status_code != 201:
+        print("ERROR: Unable to clone version\n")
+        return False
 
 def patch_vuln(bd, comp):
     status = "PATCHED"
