@@ -3,7 +3,7 @@
 # DEPRECATION NOTICE
 
 This script will be deprecated soon in preference for a new utility designed to address several limitations in this version.
-Please see [bd_scan_yocto](https://github.com/matthewb66/bd_scan_yocto) for the latest beta script for Yocto scanning.
+Please see [bd_scan_yocto_via_sbom](https://github.com/blackducksoftware/bd_scan_yocto_via_sbom) for the latest beta script for Yocto scanning.
 
 # INTRODUCTION
 This script is provided under an OSS license as an example of how to use the Black Duck APIs to import components from a Yocto project manifest.
